@@ -1,27 +1,6 @@
 const express = require('express');
 const router = express.Router();
-
-// Mock data for testing (replace with database later)
-const mockRecipes = [
-  {
-    id: 1,
-    title: 'Spaghetti Carbonara',
-    description: 'Classic Italian pasta dish',
-    ingredients: ['pasta', 'eggs', 'bacon', 'cheese'],
-    instructions: 'Cook pasta, mix with eggs and bacon...',
-    cookingTime: 20,
-    rating: 4.5
-  },
-  {
-    id: 2,
-    title: 'Chicken Curry',
-    description: 'Spicy and flavorful curry',
-    ingredients: ['chicken', 'curry powder', 'coconut milk', 'onions'],
-    instructions: 'Cook chicken, add spices...',
-    cookingTime: 45,
-    rating: 4.2
-  }
-];
+const pool = require('../config/database');
 
 /**
  * @swagger
@@ -29,38 +8,49 @@ const mockRecipes = [
  *   schemas:
  *     Recipe:
  *       type: object
- *       required:
- *         - title
- *         - description
- *         - ingredients
- *         - instructions
  *       properties:
  *         id:
  *           type: integer
- *           description: Auto-generated ID
+ *           description: Recipe ID
  *         title:
  *           type: string
  *           description: Recipe title
  *         description:
  *           type: string
- *           description: Short description of the recipe
- *         ingredients:
- *           type: array
- *           items:
- *             type: string
- *           description: List of ingredients
- *         instructions:
+ *           description: Recipe description
+ *         origin:
  *           type: string
- *           description: Cooking instructions
+ *           description: Cuisine origin
  *         cookingTime:
  *           type: integer
  *           description: Cooking time in minutes
  *         rating:
  *           type: number
  *           format: float
- *           minimum: 0
- *           maximum: 5
  *           description: Average rating
+ *         createdBy:
+ *           type: string
+ *           description: Username of recipe creator
+ *         ingredients:
+ *           type: array
+ *           items:
+ *             type: object
+ *             properties:
+ *               label:
+ *                 type: string
+ *               quantity:
+ *                 type: number
+ *               measurement:
+ *                 type: string
+ *         instructions:
+ *           type: array
+ *           items:
+ *             type: object
+ *             properties:
+ *               step:
+ *                 type: integer
+ *               content:
+ *                 type: string
  */
 
 /**
@@ -75,16 +65,182 @@ const mockRecipes = [
  *         content:
  *           application/json:
  *             schema:
- *               type: array
- *               items:
- *                 $ref: '#/components/schemas/Recipe'
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Recipe'
+ *                 count:
+ *                   type: integer
  */
-router.get('/', (req, res) => {
-  res.json({
-    success: true,
-    data: mockRecipes,
-    count: mockRecipes.length
-  });
+router.get('/', async (req, res) => {
+  try {
+    const query = `
+      SELECT 
+        r.recipeid as id,
+        r.recipetitle as title,
+        r.origin,
+        r.duration as cookingTime,
+        r.description,
+        r.createdat,
+        u.username as createdBy,
+        COALESCE(ROUND(AVG(rt.ratingscore)::numeric, 2), 0) as rating,
+        COUNT(rt.ratingid) as totalRatings
+      FROM Recipe r
+      LEFT JOIN "User" u ON r.userid = u.userid
+      LEFT JOIN Rating rt ON r.recipeid = rt.recipeid
+      GROUP BY r.recipeid, r.recipetitle, r.origin, r.duration, r.description, r.createdat, u.username
+      ORDER BY r.createdat DESC
+    `;
+
+    const result = await pool.query(query);
+    
+    res.json({
+      success: true,
+      data: result.rows,
+      count: result.rows.length
+    });
+
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch recipes',
+      error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+    });
+  }
+});
+
+/**
+ * @swagger
+ * /api/recipes/search:
+ *   get:
+ *     summary: Search recipes
+ *     description: Search recipes by title, origin, or description
+ *     parameters:
+ *       - in: query
+ *         name: q
+ *         required: true
+ *         description: Search query
+ *         schema:
+ *           type: string
+ *           example: "curry"
+ *       - in: query
+ *         name: origin
+ *         required: false
+ *         description: Filter by cuisine origin
+ *         schema:
+ *           type: string
+ *           example: "Italian"
+ *       - in: query
+ *         name: maxTime
+ *         required: false
+ *         description: Maximum cooking time in minutes
+ *         schema:
+ *           type: integer
+ *           example: 30
+ *     responses:
+ *       200:
+ *         description: Search results
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Recipe'
+ *                 count:
+ *                   type: integer
+ *                 searchQuery:
+ *                   type: string
+ */
+router.get('/search', async (req, res) => {
+  try {
+    const { q, origin, maxTime } = req.query;
+    
+    if (!q && !origin && !maxTime) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please provide at least one search parameter: q, origin, or maxTime'
+      });
+    }
+
+    let query = `
+      SELECT 
+        r.recipeid as id,
+        r.recipetitle as title,
+        r.origin,
+        r.duration as cookingTime,
+        r.description,
+        r.createdat,
+        u.username as createdBy,
+        COALESCE(ROUND(AVG(rt.ratingscore)::numeric, 2), 0) as rating,
+        COUNT(rt.ratingid) as totalRatings
+      FROM Recipe r
+      LEFT JOIN "User" u ON r.userid = u.userid
+      LEFT JOIN Rating rt ON r.recipeid = rt.recipeid
+      WHERE 1=1
+    `;
+
+    const queryParams = [];
+    let paramIndex = 1;
+
+    // Search by title, description, or origin
+    if (q) {
+      query += ` AND (
+        LOWER(r.recipetitle) LIKE LOWER($${paramIndex}) 
+        OR LOWER(r.description) LIKE LOWER($${paramIndex})
+        OR LOWER(r.origin) LIKE LOWER($${paramIndex})
+      )`;
+      queryParams.push(`%${q}%`);
+      paramIndex++;
+    }
+
+    // Filter by specific origin
+    if (origin) {
+      query += ` AND LOWER(r.origin) = LOWER($${paramIndex})`;
+      queryParams.push(origin);
+      paramIndex++;
+    }
+
+    // Filter by cooking time
+    if (maxTime) {
+      const time = parseInt(maxTime);
+      if (!isNaN(time)) {
+        query += ` AND r.duration <= $${paramIndex}`;
+        queryParams.push(time);
+        paramIndex++;
+      }
+    }
+
+    query += `
+      GROUP BY r.recipeid, r.recipetitle, r.origin, r.duration, r.description, r.createdat, u.username
+      ORDER BY rating DESC, r.createdat DESC
+    `;
+
+    const result = await pool.query(query, queryParams);
+    
+    res.json({
+      success: true,
+      data: result.rows,
+      count: result.rows.length,
+      searchQuery: q,
+      filters: { origin, maxTime }
+    });
+
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Search failed',
+      error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+    });
+  }
 });
 
 /**
@@ -92,7 +248,7 @@ router.get('/', (req, res) => {
  * /api/recipes/{id}:
  *   get:
  *     summary: Get recipe by ID
- *     description: Retrieve a specific recipe by its ID
+ *     description: Retrieve a specific recipe with full details including ingredients and instructions
  *     parameters:
  *       - in: path
  *         name: id
@@ -106,94 +262,100 @@ router.get('/', (req, res) => {
  *         content:
  *           application/json:
  *             schema:
- *               $ref: '#/components/schemas/Recipe'
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   $ref: '#/components/schemas/Recipe'
  *       404:
  *         description: Recipe not found
  */
-router.get('/:id', (req, res) => {
-  const id = parseInt(req.params.id);
-  const recipe = mockRecipes.find(r => r.id === id);
-  
-  if (!recipe) {
-    return res.status(404).json({
-      success: false,
-      message: 'Recipe not found'
-    });
-  }
-  
-  res.json({
-    success: true,
-    data: recipe
-  });
-});
+router.get('/:id', async (req, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    
+    if (isNaN(id)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid recipe ID'
+      });
+    }
 
-/**
- * @swagger
- * /api/recipes:
- *   post:
- *     summary: Create a new recipe
- *     description: Add a new recipe to the collection
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required:
- *               - title
- *               - description
- *               - ingredients
- *               - instructions
- *             properties:
- *               title:
- *                 type: string
- *               description:
- *                 type: string
- *               ingredients:
- *                 type: array
- *                 items:
- *                   type: string
- *               instructions:
- *                 type: string
- *               cookingTime:
- *                 type: integer
- *     responses:
- *       201:
- *         description: Recipe created successfully
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Recipe'
- *       400:
- *         description: Invalid input
- */
-router.post('/', (req, res) => {
-  const { title, description, ingredients, instructions, cookingTime } = req.body;
-  
-  if (!title || !description || !ingredients || !instructions) {
-    return res.status(400).json({
+    // Get basic recipe info
+    const recipeQuery = `
+      SELECT 
+        r.recipeid as id,
+        r.recipetitle as title,
+        r.origin,
+        r.duration as cookingTime,
+        r.description,
+        r.createdat,
+        r.updatedat,
+        u.username as createdBy,
+        COALESCE(ROUND(AVG(rt.ratingscore)::numeric, 2), 0) as rating,
+        COUNT(rt.ratingid) as totalRatings
+      FROM Recipe r
+      LEFT JOIN "User" u ON r.userid = u.userid
+      LEFT JOIN Rating rt ON r.recipeid = rt.recipeid
+      WHERE r.recipeid = $1
+      GROUP BY r.recipeid, r.recipetitle, r.origin, r.duration, r.description, r.createdat, r.updatedat, u.username
+    `;
+
+    // Get ingredients for this recipe
+    const ingredientsQuery = `
+      SELECT 
+        i.label,
+        i.quantity,
+        i.measurement
+      FROM Recipe_Ingredient ri
+      JOIN Ingredient i ON ri.ingredientid = i.ingredientid
+      WHERE ri.recipeid = $1
+      ORDER BY i.label
+    `;
+
+    // Get instructions for this recipe
+    const instructionsQuery = `
+      SELECT 
+        inst.step,
+        inst.content
+      FROM Recipe_Instruction rin
+      JOIN Instruction inst ON rin.instructionid = inst.instructionid
+      WHERE rin.recipeid = $1
+      ORDER BY inst.step ASC
+    `;
+
+    const [recipeResult, ingredientsResult, instructionsResult] = await Promise.all([
+      pool.query(recipeQuery, [id]),
+      pool.query(ingredientsQuery, [id]),
+      pool.query(instructionsQuery, [id])
+    ]);
+
+    if (recipeResult.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Recipe not found'
+      });
+    }
+
+    const recipe = {
+      ...recipeResult.rows[0],
+      ingredients: ingredientsResult.rows,
+      instructions: instructionsResult.rows
+    };
+
+    res.json({
+      success: true,
+      data: recipe
+    });
+
+  } catch (error) {
+    res.status(500).json({
       success: false,
-      message: 'Missing required fields: title, description, ingredients, instructions'
+      message: 'Failed to fetch recipe',
+      error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
     });
   }
-  
-  const newRecipe = {
-    id: mockRecipes.length + 1,
-    title,
-    description,
-    ingredients,
-    instructions,
-    cookingTime: cookingTime || 0,
-    rating: 0
-  };
-  
-  mockRecipes.push(newRecipe);
-  
-  res.status(201).json({
-    success: true,
-    data: newRecipe,
-    message: 'Recipe created successfully'
-  });
 });
 
 module.exports = router;

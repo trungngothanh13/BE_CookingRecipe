@@ -1,3 +1,5 @@
+
+// server.js - Fixed version
 const express = require('express');
 const cors = require('cors');
 const swaggerJsdoc = require('swagger-jsdoc');
@@ -29,27 +31,42 @@ const swaggerOptions = {
 const swaggerSpec = swaggerJsdoc(swaggerOptions);
 
 // Middleware
-app.use(cors(
-    { origin: [] }
-)); // Fill in allowed origins
+app.use(cors({
+  origin: [] // Fill in allowed origins
+}));
 app.use(express.json());
 
 // Swagger UI
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
-// Import routes
-const recipeRoutes = require('./src/routes/recipes');
-
-// Use routes
-app.use('/api/recipes', recipeRoutes);
-
-
-
-// This is to keep the server running
+// Health check endpoint (put this BEFORE importing routes to test basic server)
 app.get('/api/health', (req, res) => {
-  res.json({ message: 'Server is running!' });
+  res.json({ 
+    message: 'Server is running!',
+    timestamp: new Date().toISOString()
+  });
 });
+
+// Test if basic server works first
+console.log('Setting up routes...');
+
+// Import and use routes
+try {
+  const recipeRoutes = require('./src/routes/recipes');
+  console.log('Recipe routes imported successfully');
+  
+  // Check if recipeRoutes is actually a router
+  if (typeof recipeRoutes === 'function') {
+    app.use('/api/recipes', recipeRoutes);
+    console.log('Recipe routes configured successfully');
+  } else {
+    console.error('Recipe routes is not a function:', typeof recipeRoutes);
+  }
+} catch (error) {
+  console.error('Error importing recipe routes:', error);
+}
 
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
+  console.log(`Swagger docs available at http://localhost:${PORT}/api-docs`);
 });
