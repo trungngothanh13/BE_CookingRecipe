@@ -16,7 +16,7 @@ const swaggerOptions = {
     info: {
       title: 'Recipe API',
       version: '1.0.0',
-      description: 'A simple recipe management API for testing Swagger',
+      description: 'A recipe management API',
     },
     servers: [
       {
@@ -24,9 +24,19 @@ const swaggerOptions = {
         description: 'Development server',
       },
     ],
+    components: {
+      securitySchemes: {
+        bearerAuth: {
+          type: 'http',
+          scheme: 'bearer',
+          bearerFormat: 'JWT',
+        },
+      },
+    },
   },
   apis: ['./src/routes/*.js'], // Path to the API files
 };
+
 
 const swaggerSpec = swaggerJsdoc(swaggerOptions);
 
@@ -47,23 +57,20 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-// Test if basic server works first
-console.log('Setting up routes...');
-
 // Import and use routes
 try {
+  // Authentication routes
+  const authRoutes = require('./src/routes/auth');
+  app.use('/api/auth', authRoutes.router);
+  console.log('Auth routes configured successfully');
+
+  // Recipe routes
   const recipeRoutes = require('./src/routes/recipes');
-  console.log('Recipe routes imported successfully');
-  
-  // Check if recipeRoutes is actually a router
-  if (typeof recipeRoutes === 'function') {
-    app.use('/api/recipes', recipeRoutes);
-    console.log('Recipe routes configured successfully');
-  } else {
-    console.error('Recipe routes is not a function:', typeof recipeRoutes);
-  }
+  app.use('/api/recipes', recipeRoutes);
+  console.log('Recipe routes configured successfully');
+
 } catch (error) {
-  console.error('Error importing recipe routes:', error);
+  console.error('Error importing routes:', error);
 }
 
 app.listen(PORT, () => {
