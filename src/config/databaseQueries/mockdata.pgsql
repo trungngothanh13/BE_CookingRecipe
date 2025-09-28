@@ -1,8 +1,8 @@
 -- Insert sample data
-INSERT INTO "User" (Username, Password, ProfilePicture) VALUES
-('chef_mario', '$2b$10$hashedpassword1', 'https://example.com/mario.jpg'),
-('home_cook_anna', '$2b$10$hashedpassword2', 'https://example.com/anna.jpg'),
-('spice_master', '$2b$10$hashedpassword3', 'https://example.com/spice.jpg');
+-- INSERT INTO "User" (Username, Password) VALUES
+-- ('chef_mario', '$2b$10$hashedpassword1'),
+-- ('home_cook_anna', '$2b$10$hashedpassword2'),
+-- ('spice_master', '$2b$10$hashedpassword3');
 
 INSERT INTO Recipe (RecipeTitle, Origin, Duration, Description, UserID) VALUES
 ('Spaghetti Carbonara', 'Italian', 20, 'Classic Italian pasta dish with eggs, cheese, and bacon', 1),
@@ -53,86 +53,12 @@ INSERT INTO Rating (RecipeID, UserID, RatingScore) VALUES
 (2, 1, 4), (2, 3, 5),
 (3, 2, 3), (3, 3, 4);
 
-
-
-
--- Create a view for recipes with average ratings
-CREATE VIEW recipe_with_ratings AS
-SELECT 
-    r.RecipeID,
-    r.RecipeTitle,
-    r.Origin,
-    r.Duration,
-    r.Description,
-    r.UserID,
-    r.CreatedAt,
-    r.UpdatedAt,
-    COALESCE(ROUND(AVG(rt.RatingScore)::numeric, 2), 0) as AvgRating,
-    COUNT(rt.RatingID) as TotalRatings
-FROM Recipe r
-LEFT JOIN Rating rt ON r.RecipeID = rt.RecipeID
-GROUP BY r.RecipeID, r.RecipeTitle, r.Origin, r.Duration, r.Description, r.UserID, r.CreatedAt, r.UpdatedAt;
-
--- Get all recipes with their average ratings
-SELECT * FROM recipe_with_ratings ORDER BY AvgRating DESC;
-
--- Search recipes by title or origin
-SELECT r.*, COALESCE(ROUND(AVG(rt.RatingScore)::numeric, 2), 0) as AvgRating
-FROM Recipe r
-LEFT JOIN Rating rt ON r.RecipeID = rt.RecipeID
-WHERE r.RecipeTitle ILIKE '%curry%' OR r.Origin ILIKE '%indian%'
-GROUP BY r.RecipeID;
-
--- Get recipes by cooking time (quick meals - under 30 minutes)
-SELECT * FROM recipe_with_ratings 
-WHERE Duration <= 30 
-ORDER BY Duration ASC;
-
--- Get recipes with few ingredients (3 or less)
-SELECT r.RecipeTitle, r.Duration, COUNT(ri.IngredientID) as IngredientCount
-FROM Recipe r
-LEFT JOIN Recipe_Ingredient ri ON r.RecipeID = ri.RecipeID
-GROUP BY r.RecipeID, r.RecipeTitle, r.Duration
-HAVING COUNT(ri.IngredientID) <= 3
-ORDER BY IngredientCount ASC;
-
--- Get full recipe details including ingredients and instructions
-SELECT 
-    r.RecipeTitle,
-    r.Origin,
-    r.Duration,
-    r.Description,
-    u.Username as CreatedBy,
-    STRING_AGG(DISTINCT CONCAT(i.Quantity, ' ', i.Measurement, ' ', i.Label), ', ') as Ingredients,
-    STRING_AGG(DISTINCT CONCAT('Step ', inst.Step, ': ', inst.Content), ' | ' ORDER BY inst.Step) as Instructions,
-    COALESCE(ROUND(AVG(rt.RatingScore)::numeric, 2), 0) as AvgRating
-FROM Recipe r
-LEFT JOIN "User" u ON r.UserID = u.UserID
-LEFT JOIN Recipe_Ingredient ri ON r.RecipeID = ri.RecipeID
-LEFT JOIN Ingredient i ON ri.IngredientID = i.IngredientID
-LEFT JOIN Recipe_Instruction rin ON r.RecipeID = rin.RecipeID
-LEFT JOIN Instruction inst ON rin.InstructionID = inst.InstructionID
-LEFT JOIN Rating rt ON r.RecipeID = rt.RecipeID
-WHERE r.RecipeID = 1
-GROUP BY r.RecipeID, r.RecipeTitle, r.Origin, r.Duration, r.Description, u.Username;
-
--- Get user's own recipes
-SELECT r.*, COALESCE(ROUND(AVG(rt.RatingScore)::numeric, 2), 0) as AvgRating
-FROM Recipe r
-LEFT JOIN Rating rt ON r.RecipeID = rt.RecipeID
-WHERE r.UserID = 1
-GROUP BY r.RecipeID
-ORDER BY r.CreatedAt DESC;
-
--- Get foreign dishes (non-American origin)
-SELECT * FROM recipe_with_ratings 
-WHERE Origin NOT IN ('American', 'USA') 
-ORDER BY AvgRating DESC;
-
 SELECT * FROM "User";
 SELECT * FROM Recipe;
 SELECT * FROM Ingredient;
 SELECT * FROM Instruction;
+SELECT * FROM Image;
+SELECT * FROM Rating;
 SELECT * FROM Recipe_Ingredient;
 SELECT * FROM Recipe_Instruction;
-SELECT * FROM Rating;
+SELECT * FROM Recipe_Image;

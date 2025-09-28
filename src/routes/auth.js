@@ -83,20 +83,25 @@ const JWT_SECRET = process.env.JWT_SECRET || 'your-super-secret-jwt-key'; // Use
  *               properties:
  *                 success:
  *                   type: boolean
+ *                   example: true
  *                 message:
  *                   type: string
+ *                   example: "User created successfully"
  *                 user:
  *                   type: object
  *                   properties:
  *                     id:
  *                       type: integer
+ *                       example: 4
  *                     username:
  *                       type: string
+ *                       example: "john_chef"
  *                     profilePicture:
  *                       type: string
+ *                       example: "https://example.com/profile.jpg"
  *                 token:
  *                   type: string
- *                   description: JWT authentication token
+ *                   example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
  *       400:
  *         description: Validation error or username already exists
  *       500:
@@ -210,12 +215,25 @@ router.post('/register', async (req, res) => {
  *               properties:
  *                 success:
  *                   type: boolean
+ *                   example: true
  *                 message:
  *                   type: string
+ *                   example: "Login successful"
  *                 user:
- *                   $ref: '#/components/schemas/User'
+ *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: integer
+ *                       example: 4
+ *                     username:
+ *                       type: string
+ *                       example: "john_chef"
+ *                     profilePicture:
+ *                       type: string
+ *                       example: "https://example.com/profile.jpg"
  *                 token:
  *                   type: string
+ *                   example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
  *       401:
  *         description: Invalid credentials
  *       500:
@@ -297,7 +315,7 @@ router.post('/login', async (req, res) => {
  *     summary: Get user profile
  *     description: Get current user's profile information (requires authentication)
  *     security:
- *       - bearerAuth: []   # This protects the endpoint with JWT
+ *       - bearerAuth: []
  *     responses:
  *       200:
  *         description: Profile retrieved successfully
@@ -308,8 +326,19 @@ router.post('/login', async (req, res) => {
  *               properties:
  *                 success:
  *                   type: boolean
+ *                   example: true
  *                 user:
- *                   $ref: '#/components/schemas/User'
+ *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: integer
+ *                       example: 4
+ *                     username:
+ *                       type: string
+ *                       example: "john_chef"
+ *                     profilePicture:
+ *                       type: string
+ *                       example: "https://example.com/profile.jpg"
  *       401:
  *         description: Unauthorized - invalid or missing token
  */

@@ -1,4 +1,6 @@
--- Drop tables if they exist (for clean setup)
+-- Drop existing tables if they exist (for clean setup)
+DROP TABLE IF EXISTS Recipe_Image CASCADE;
+DROP TABLE IF EXISTS Image CASCADE;
 DROP TABLE IF EXISTS Recipe_Instruction CASCADE;
 DROP TABLE IF EXISTS Recipe_Ingredient CASCADE;
 DROP TABLE IF EXISTS Rating CASCADE;
@@ -42,6 +44,15 @@ CREATE TABLE Recipe (
     UpdatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Create Images table
+CREATE TABLE Image (
+    ImageID SERIAL PRIMARY KEY,
+    ImageURL TEXT NOT NULL, -- URL to stored image file
+    ImageAlt VARCHAR(255), -- Alt text for accessibility
+    IsTitleImage BOOLEAN DEFAULT false, -- Whether this is the main recipe image
+    UploadedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Create Recipe_Ingredient junction table (many-to-many)
 CREATE TABLE Recipe_Ingredient (
     RecipeID INTEGER REFERENCES Recipe(RecipeID) ON DELETE CASCADE,
@@ -54,6 +65,13 @@ CREATE TABLE Recipe_Instruction (
     RecipeID INTEGER REFERENCES Recipe(RecipeID) ON DELETE CASCADE,
     InstructionID INTEGER REFERENCES Instruction(InstructionID) ON DELETE CASCADE,
     PRIMARY KEY (RecipeID, InstructionID)
+);
+
+-- Create Image_Recipe junction table (many-to-many)
+CREATE TABLE Recipe_Image (
+    RecipeID INTEGER REFERENCES Recipe(RecipeID) ON DELETE CASCADE,
+    ImageID INTEGER REFERENCES Image(ImageID) ON DELETE CASCADE,
+    PRIMARY KEY (RecipeID, ImageID)
 );
 
 -- Create Rating table

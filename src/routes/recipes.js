@@ -125,12 +125,43 @@ const { authenticateToken } = require('./auth'); // Import authentication middle
  *               properties:
  *                 success:
  *                   type: boolean
+ *                   example: true
  *                 data:
  *                   type: array
  *                   items:
- *                     $ref: '#/components/schemas/Recipe'
+ *                     type: object
+ *                     properties:
+ *                       id:
+ *                         type: integer
+ *                         example: 1
+ *                       title:
+ *                         type: string
+ *                         example: "Spaghetti Carbonara"
+ *                       origin:
+ *                         type: string
+ *                         example: "Italian"
+ *                       cookingTime:
+ *                         type: integer
+ *                         example: 20
+ *                       description:
+ *                         type: string
+ *                         example: "Classic Italian pasta dish with eggs, cheese, and bacon"
+ *                       createdAt:
+ *                         type: string
+ *                         format: date-time
+ *                         example: "2024-01-15T14:30:00Z"
+ *                       createdBy:
+ *                         type: string
+ *                         example: "chef_mario"
+ *                       rating:
+ *                         type: number
+ *                         example: 4.50
+ *                       totalRatings:
+ *                         type: integer
+ *                         example: 2
  *                 count:
  *                   type: integer
+ *                   example: 5
  */
 router.get('/', async (req, res) => {
   try {
@@ -224,10 +255,78 @@ router.get('/', async (req, res) => {
  *               properties:
  *                 success:
  *                   type: boolean
+ *                   example: true
  *                 message:
  *                   type: string
+ *                   example: "Recipe created successfully"
  *                 data:
- *                   $ref: '#/components/schemas/Recipe'
+ *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: integer
+ *                       example: 6
+ *                     title:
+ *                       type: string
+ *                       example: "Classic Margherita Pizza"
+ *                     origin:
+ *                       type: string
+ *                       example: "Italian"
+ *                     cookingTime:
+ *                       type: integer
+ *                       example: 25
+ *                     description:
+ *                       type: string
+ *                       example: "Traditional Italian pizza with tomato, mozzarella, and fresh basil"
+ *                     createdAt:
+ *                       type: string
+ *                       format: date-time
+ *                       example: "2024-01-15T14:30:00Z"
+ *                     createdBy:
+ *                       type: string
+ *                       example: "john_chef"
+ *                     rating:
+ *                       type: number
+ *                       example: 0
+ *                     totalRatings:
+ *                       type: integer
+ *                       example: 0
+ *                     ingredients:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           label:
+ *                             type: string
+ *                             example: "Pizza dough"
+ *                           quantity:
+ *                             type: number
+ *                             example: 1
+ *                           measurement:
+ *                             type: string
+ *                             example: "ball"
+ *                       example:
+ *                         - label: "Pizza dough"
+ *                           quantity: 1
+ *                           measurement: "ball"
+ *                         - label: "Tomato sauce"
+ *                           quantity: 0.5
+ *                           measurement: "cup"
+ *                     instructions:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           step:
+ *                             type: integer
+ *                             example: 1
+ *                           content:
+ *                             type: string
+ *                             example: "Preheat oven to 475°F (245°C)"
+ *                       example:
+ *                         - step: 1
+ *                           content: "Preheat oven to 475°F (245°C)"
+ *                         - step: 2
+ *                           content: "Roll out pizza dough on a floured surface"
  *       400:
  *         description: Validation error
  *       401:
@@ -443,7 +542,7 @@ router.post('/', authenticateToken, async (req, res) => {
  *     parameters:
  *       - in: query
  *         name: q
- *         required: true
+ *         required: false
  *         description: Search query
  *         schema:
  *           type: string
@@ -472,14 +571,57 @@ router.post('/', authenticateToken, async (req, res) => {
  *               properties:
  *                 success:
  *                   type: boolean
+ *                   example: true
  *                 data:
  *                   type: array
  *                   items:
- *                     $ref: '#/components/schemas/Recipe'
+ *                     type: object
+ *                     properties:
+ *                       id:
+ *                         type: integer
+ *                         example: 2
+ *                       title:
+ *                         type: string
+ *                         example: "Chicken Curry"
+ *                       origin:
+ *                         type: string
+ *                         example: "Indian"
+ *                       cookingTime:
+ *                         type: integer
+ *                         example: 45
+ *                       description:
+ *                         type: string
+ *                         example: "Spicy and flavorful curry with coconut milk"
+ *                       createdAt:
+ *                         type: string
+ *                         format: date-time
+ *                         example: "2024-01-15T14:30:00Z"
+ *                       createdBy:
+ *                         type: string
+ *                         example: "home_cook_anna"
+ *                       rating:
+ *                         type: number
+ *                         example: 4.50
+ *                       totalRatings:
+ *                         type: integer
+ *                         example: 2
  *                 count:
  *                   type: integer
+ *                   example: 1
  *                 searchQuery:
  *                   type: string
+ *                   example: "curry"
+ *                 filters:
+ *                   type: object
+ *                   properties:
+ *                     origin:
+ *                       type: string
+ *                       example: null
+ *                     maxTime:
+ *                       type: string
+ *                       example: null
+ *       400:
+ *         description: No search parameters provided
  */
 router.get('/search', async (req, res) => {
   try {
@@ -577,6 +719,7 @@ router.get('/search', async (req, res) => {
  *         description: Recipe ID
  *         schema:
  *           type: integer
+ *           example: 1
  *     responses:
  *       200:
  *         description: Recipe found
@@ -587,8 +730,63 @@ router.get('/search', async (req, res) => {
  *               properties:
  *                 success:
  *                   type: boolean
+ *                   example: true
  *                 data:
- *                   $ref: '#/components/schemas/Recipe'
+ *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: integer
+ *                       example: 1
+ *                     title:
+ *                       type: string
+ *                       example: "Spaghetti Carbonara"
+ *                     origin:
+ *                       type: string
+ *                       example: "Italian"
+ *                     cookingTime:
+ *                       type: integer
+ *                       example: 20
+ *                     description:
+ *                       type: string
+ *                       example: "Classic Italian pasta dish with eggs, cheese, and bacon"
+ *                     createdAt:
+ *                       type: string
+ *                       format: date-time
+ *                       example: "2024-01-15T14:30:00Z"
+ *                     updatedAt:
+ *                       type: string
+ *                       format: date-time
+ *                       example: "2024-01-15T14:30:00Z"
+ *                     createdBy:
+ *                       type: string
+ *                       example: "chef_mario"
+ *                     rating:
+ *                       type: number
+ *                       example: 4.50
+ *                     totalRatings:
+ *                       type: integer
+ *                       example: 2
+ *                     ingredients:
+ *                       type: array
+ *                       example:
+ *                         - label: "Spaghetti pasta"
+ *                           quantity: 400
+ *                           measurement: "grams"
+ *                         - label: "Eggs"
+ *                           quantity: 4
+ *                           measurement: "pieces"
+ *                         - label: "Bacon"
+ *                           quantity: 200
+ *                           measurement: "grams"
+ *                     instructions:
+ *                       type: array
+ *                       example:
+ *                         - step: 1
+ *                           content: "Cook spaghetti according to package instructions until al dente"
+ *                         - step: 2
+ *                           content: "In a bowl, whisk eggs with grated Parmesan cheese"
+ *                         - step: 3
+ *                           content: "Cook bacon until crispy, then remove excess fat"
  *       404:
  *         description: Recipe not found
  */
@@ -694,6 +892,7 @@ router.get('/:id', async (req, res) => {
  *         description: Recipe ID to update
  *         schema:
  *           type: integer
+ *           example: 1
  *     requestBody:
  *       required: true
  *       content:
@@ -712,11 +911,16 @@ router.get('/:id', async (req, res) => {
  *               - label: "San Marzano tomatoes"
  *                 quantity: 400
  *                 measurement: "grams"
+ *               - label: "Buffalo mozzarella"
+ *                 quantity: 250
+ *                 measurement: "grams"
  *             instructions:
  *               - step: 1
  *                 content: "Preheat oven to 500°F (260°C)"
  *               - step: 2
- *                 content: "Prepare the dough and let it rest"
+ *                 content: "Prepare the dough and let it rest for 30 minutes"
+ *               - step: 3
+ *                 content: "Spread San Marzano tomatoes on the dough"
  *     responses:
  *       200:
  *         description: Recipe updated successfully
@@ -727,10 +931,61 @@ router.get('/:id', async (req, res) => {
  *               properties:
  *                 success:
  *                   type: boolean
+ *                   example: true
  *                 message:
  *                   type: string
+ *                   example: "Recipe updated successfully"
  *                 data:
- *                   $ref: '#/components/schemas/Recipe'
+ *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: integer
+ *                       example: 1
+ *                     title:
+ *                       type: string
+ *                       example: "Updated Margherita Pizza"
+ *                     origin:
+ *                       type: string
+ *                       example: "Italian"
+ *                     cookingTime:
+ *                       type: integer
+ *                       example: 30
+ *                     description:
+ *                       type: string
+ *                       example: "Even better traditional Italian pizza"
+ *                     createdAt:
+ *                       type: string
+ *                       format: date-time
+ *                       example: "2024-01-15T14:30:00Z"
+ *                     updatedAt:
+ *                       type: string
+ *                       format: date-time
+ *                       example: "2024-01-15T16:45:00Z"
+ *                     createdBy:
+ *                       type: string
+ *                       example: "chef_mario"
+ *                     rating:
+ *                       type: number
+ *                       example: 4.50
+ *                     totalRatings:
+ *                       type: integer
+ *                       example: 2
+ *                     ingredients:
+ *                       type: array
+ *                       example:
+ *                         - label: "Pizza dough"
+ *                           quantity: 1
+ *                           measurement: "ball"
+ *                         - label: "San Marzano tomatoes"
+ *                           quantity: 400
+ *                           measurement: "grams"
+ *                     instructions:
+ *                       type: array
+ *                       example:
+ *                         - step: 1
+ *                           content: "Preheat oven to 500°F (260°C)"
+ *                         - step: 2
+ *                           content: "Prepare the dough and let it rest for 30 minutes"
  *       400:
  *         description: Validation error
  *       401:
@@ -993,6 +1248,7 @@ router.put('/:id', authenticateToken, async (req, res) => {
  *         description: Recipe ID to delete
  *         schema:
  *           type: integer
+ *           example: 1
  *     responses:
  *       200:
  *         description: Recipe deleted successfully
@@ -1003,8 +1259,10 @@ router.put('/:id', authenticateToken, async (req, res) => {
  *               properties:
  *                 success:
  *                   type: boolean
+ *                   example: true
  *                 message:
  *                   type: string
+ *                   example: 'Recipe Spaghetti Carbonara deleted successfully'
  *       401:
  *         description: Authentication required
  *       403:
@@ -1107,12 +1365,47 @@ router.delete('/:id', authenticateToken, async (req, res) => {
  *               properties:
  *                 success:
  *                   type: boolean
+ *                   example: true
  *                 data:
  *                   type: array
  *                   items:
- *                     $ref: '#/components/schemas/Recipe'
+ *                     type: object
+ *                     properties:
+ *                       id:
+ *                         type: integer
+ *                         example: 1
+ *                       title:
+ *                         type: string
+ *                         example: "Spaghetti Carbonara"
+ *                       origin:
+ *                         type: string
+ *                         example: "Italian"
+ *                       cookingTime:
+ *                         type: integer
+ *                         example: 20
+ *                       description:
+ *                         type: string
+ *                         example: "Classic Italian pasta dish"
+ *                       createdAt:
+ *                         type: string
+ *                         format: date-time
+ *                         example: "2024-01-15T14:30:00Z"
+ *                       updatedAt:
+ *                         type: string
+ *                         format: date-time
+ *                         example: "2024-01-15T14:30:00Z"
+ *                       createdBy:
+ *                         type: string
+ *                         example: "chef_mario"
+ *                       rating:
+ *                         type: number
+ *                         example: 4.50
+ *                       totalRatings:
+ *                         type: integer
+ *                         example: 2
  *                 count:
  *                   type: integer
+ *                   example: 3
  *       401:
  *         description: Authentication required
  *       500:

@@ -11,15 +11,17 @@ Server side of Cooking Recipe website
 ## Testing the server
 `npm run dev`
 
-## Paste this to package.json
+## Paste this to package.json (contain installed dependencies)
 ```bash
 {
   "dependencies": {
     "bcrypt": "^6.0.0",
+    "cloudinary": "^1.41.0",
     "cors": "^2.8.5",
     "dotenv": "^17.2.2",
     "express": "^5.1.0",
     "jsonwebtoken": "^9.0.2",
+    "multer": "^1.4.5-lts.1",
     "pg": "^8.16.3",
     "swagger-jsdoc": "^6.2.8",
     "swagger-ui-express": "^5.0.1"

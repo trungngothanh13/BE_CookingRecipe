@@ -1,13 +1,18 @@
-
-// server.js - Fixed version
+// server.js
 const express = require('express');
 const cors = require('cors');
 const swaggerJsdoc = require('swagger-jsdoc');
 const swaggerUi = require('swagger-ui-express');
+const fs = require('fs');
 require('dotenv').config();
 
 const app = express();
 const PORT = process.env.PORT || 5000;
+
+// Create temp directory for file uploads if it doesn't exist
+if (!fs.existsSync('temp')) {
+  fs.mkdirSync('temp');
+}
 
 // Swagger configuration
 const swaggerOptions = {
@@ -45,6 +50,8 @@ app.use(cors({
   origin: [] // Fill in allowed origins
 }));
 app.use(express.json());
+app.use(express.json({ limit: '10mb' })); // Image upload limit
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Swagger UI
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
@@ -69,10 +76,39 @@ try {
   app.use('/api/recipes', recipeRoutes);
   console.log('Recipe routes configured successfully');
 
+  // Image routes
+  const imageRoutes = require('./src/routes/images');
+  app.use('/api/images', imageRoutes);
+  console.log('Image routes configured successfully');
+
 } catch (error) {
   console.error('Error importing routes:', error);
 }
 
+// Global error handler (filesize limit, invalid file type, etc.)
+app.use((error, req, res, next) => {
+  if (error.code === 'LIMIT_FILE_SIZE') {
+    return res.status(400).json({
+      success: false,
+      message: 'File too large. Maximum size is 5MB.'
+    });
+  }
+  
+  if (error.message === 'Only image files are allowed!') {
+    return res.status(400).json({
+      success: false,
+      message: 'Only image files are allowed.'
+    });
+  }
+  
+  res.status(500).json({
+    success: false,
+    message: 'Internal server error',
+    error: process.env.NODE_ENV === 'development' ? error.message : 'Something went wrong'
+  });
+});
+
+// Start server
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
   console.log(`Swagger docs available at http://localhost:${PORT}/api-docs`);
