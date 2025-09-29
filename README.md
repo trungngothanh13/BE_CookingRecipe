@@ -41,3 +41,10 @@ Server side of Cooking Recipe website
 **Use the Token**:
 - **API Documentation**: Press the "Authorize" button and paste the token
 - **Frontend**: Include token in Authorization header: `Authorization: Bearer <token>`
+
+
+## Connect to Postgres on Render
+Example: External Database URL `postgresql://recipeuser:cwWONKbXk559qjKJmvy3axfBvqtcajC3@dpg-d3df1ur7mgec73cqk8d0-a.oregon-postgres.render.com/recipedb_s07c`
++ `dpg-d3df1ur7mgec73cqk8d0-a.oregon-postgres.render.com` is hostname
++ `cwWONKbXk559qjKJmvy3axfBvqtcajC3` is the password
++ The rest is on the info tab
