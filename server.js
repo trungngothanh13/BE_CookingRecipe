@@ -45,9 +45,11 @@ const swaggerOptions = {
 
 const swaggerSpec = swaggerJsdoc(swaggerOptions);
 
-// Middleware
 app.use(cors({
-  origin: [] // Fill in allowed origins
+  origin: [
+    'http://localhost:8080', // Local frontend
+    'https://recipe-api-cmz3.onrender.com/', // Production frontend
+  ]
 }));
 app.use(express.json());
 app.use(express.json({ limit: '10mb' })); // Image upload limit
