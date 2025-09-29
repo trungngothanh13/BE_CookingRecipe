@@ -42,9 +42,6 @@ const JWT_SECRET = process.env.JWT_SECRET || 'your-super-secret-jwt-key'; // Use
  *           type: string
  *           minLength: 6
  *           description: Password (will be hashed)
- *         profilePicture:
- *           type: string
- *           description: Optional profile picture URL
  *     UserLogin:
  *       type: object
  *       required:
@@ -72,7 +69,6 @@ const JWT_SECRET = process.env.JWT_SECRET || 'your-super-secret-jwt-key'; // Use
  *           example:
  *             username: "john_chef"
  *             password: "securePassword123"
- *             profilePicture: "https://example.com/profile.jpg"
  *     responses:
  *       201:
  *         description: User created successfully
@@ -96,9 +92,6 @@ const JWT_SECRET = process.env.JWT_SECRET || 'your-super-secret-jwt-key'; // Use
  *                     username:
  *                       type: string
  *                       example: "john_chef"
- *                     profilePicture:
- *                       type: string
- *                       example: "https://example.com/profile.jpg"
  *                 token:
  *                   type: string
  *                   example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
@@ -153,8 +146,8 @@ router.post('/register', async (req, res) => {
 
     // Insert new user
     const result = await pool.query(
-      'INSERT INTO "User" (username, password, profilepicture) VALUES ($1, $2, $3) RETURNING userid, username, profilepicture',
-      [username, hashedPassword, profilePicture || null]
+      'INSERT INTO "User" (username, password) VALUES ($1, $2) RETURNING userid, username',
+      [username, hashedPassword || null]
     );
 
     const newUser = result.rows[0];

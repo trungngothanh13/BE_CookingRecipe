@@ -25,8 +25,12 @@ const swaggerOptions = {
     },
     servers: [
       {
-        url: `http://localhost:${PORT}`,
-        description: 'Development server',
+        url: process.env.NODE_ENV === 'production' 
+          ? 'https://recipe-api-cmz3.onrender.com'  // Production URL
+          : `http://localhost:${PORT}`,              // Development URL
+        description: process.env.NODE_ENV === 'production' 
+          ? 'Production server' 
+          : 'Development server',
       },
     ],
     components: {
@@ -39,19 +43,15 @@ const swaggerOptions = {
       },
     },
   },
-  apis: ['./src/routes/*.js'], // Path to the API files
+  apis: ['./src/routes/*.js'],
 };
-
 
 const swaggerSpec = swaggerJsdoc(swaggerOptions);
 
 app.use(cors({
-  origin: [
-    'http://localhost:8080', // Local frontend
-    'https://recipe-api-cmz3.onrender.com/', // Production frontend
-  ]
+  origin: '*',  // Allow all origins (for testing only!)
+  credentials: true
 }));
-app.use(express.json());
 app.use(express.json({ limit: '10mb' })); // Image upload limit
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
