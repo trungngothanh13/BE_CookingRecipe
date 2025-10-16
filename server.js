@@ -4,6 +4,7 @@ const cors = require('cors');
 const swaggerJsdoc = require('swagger-jsdoc');
 const swaggerUi = require('swagger-ui-express');
 const fs = require('fs');
+const path = require('path');
 require('dotenv').config();
 
 const app = express();
@@ -54,6 +55,14 @@ app.use(cors({
 }));
 app.use(express.json({ limit: '10mb' })); // Image upload limit
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// Serve frontend static assets in production
+if (process.env.NODE_ENV === 'production') {
+  const clientBuildPath = path.resolve(__dirname, '../FE_CookingRecipe/dist');
+  if (fs.existsSync(clientBuildPath)) {
+    app.use(express.static(clientBuildPath));
+  }
+}
 
 // Swagger UI
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
@@ -114,6 +123,19 @@ app.use((error, req, res, next) => {
     error: process.env.NODE_ENV === 'development' ? error.message : 'Something went wrong'
   });
 });
+
+// SPA fallback: send index.html for all non-API routes in production
+if (process.env.NODE_ENV === 'production') {
+  const clientBuildPath = path.resolve(__dirname, '../FE_CookingRecipe/dist');
+  app.get('*', (req, res, next) => {
+    if (req.path.startsWith('/api')) return next();
+    const indexHtmlPath = path.join(clientBuildPath, 'index.html');
+    if (fs.existsSync(indexHtmlPath)) {
+      return res.sendFile(indexHtmlPath);
+    }
+    next();
+  });
+}
 
 // Start server
 app.listen(PORT, () => {
