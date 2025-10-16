@@ -175,11 +175,23 @@ router.get('/', async (req, res) => {
         r.createdat,
         u.username as createdBy,
         COALESCE(ROUND(AVG(rt.ratingscore)::numeric, 2), 0) as rating,
-        COUNT(rt.ratingid) as totalRatings
+        COUNT(rt.ratingid) as totalRatings,
+        r.youtubevideoid as youtubeVideoId,
+        r.videothumbnail as videoThumbnail,
+        r.price,
+        r.isforsale as isForSale,
+        r.difficulty,
+        r.servings,
+        r.category,
+        r.tags,
+        r.viewcount as viewCount,
+        r.purchasecount as purchaseCount
       FROM Recipe r
       LEFT JOIN "User" u ON r.userid = u.userid
       LEFT JOIN Rating rt ON r.recipeid = rt.recipeid
-      GROUP BY r.recipeid, r.recipetitle, r.origin, r.duration, r.description, r.createdat, u.username
+      GROUP BY r.recipeid, r.recipetitle, r.origin, r.duration, r.description, r.createdat, u.username, 
+               r.youtubevideoid, r.videothumbnail, r.price, r.isforsale, r.difficulty, r.servings, 
+               r.category, r.tags, r.viewcount, r.purchasecount
       ORDER BY r.createdat DESC
     `;
 
@@ -813,12 +825,23 @@ router.get('/:id', async (req, res) => {
         r.updatedat,
         u.username as createdBy,
         COALESCE(ROUND(AVG(rt.ratingscore)::numeric, 2), 0) as rating,
-        COUNT(rt.ratingid) as totalRatings
+        COUNT(rt.ratingid) as totalRatings,
+        r.youtubevideoid as youtubeVideoId,
+        r.videothumbnail as videoThumbnail,
+        r.price,
+        r.isforsale as isForSale,
+        r.difficulty,
+        r.servings,
+        r.category,
+        r.tags,
+        r.viewcount as viewCount,
+        r.purchasecount as purchaseCount
       FROM Recipe r
       LEFT JOIN "User" u ON r.userid = u.userid
       LEFT JOIN Rating rt ON r.recipeid = rt.recipeid
       WHERE r.recipeid = $1
-      GROUP BY r.recipeid, r.recipetitle, r.origin, r.duration, r.description, r.createdat, r.updatedat, u.username
+      GROUP BY r.recipeid, r.recipetitle, r.origin, r.duration, r.description, r.createdat, r.updatedat, u.username,
+               r.youtubevideoid, r.videothumbnail, r.price, r.isforsale, r.difficulty, r.servings, r.category, r.tags, r.viewcount, r.purchasecount
     `;
 
     // Get ingredients for this recipe
@@ -874,6 +897,48 @@ router.get('/:id', async (req, res) => {
       message: 'Failed to fetch recipe',
       error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
     });
+  }
+});
+
+/**
+ * @swagger
+ * /api/recipes/{id}/view:
+ *   post:
+ *     summary: Increment recipe view count
+ *     description: Increments the view count for a recipe
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         description: Recipe ID
+ *         schema:
+ *           type: integer
+ *           example: 1
+ *     responses:
+ *       200:
+ *         description: View count incremented
+ *       404:
+ *         description: Recipe not found
+ */
+router.post('/:id/view', async (req, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) {
+      return res.status(400).json({ success: false, message: 'Invalid recipe ID' });
+    }
+
+    const result = await pool.query(
+      'UPDATE Recipe SET viewcount = viewcount + 1 WHERE recipeid = $1 RETURNING viewcount',
+      [id]
+    );
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ success: false, message: 'Recipe not found' });
+    }
+
+    res.json({ success: true, viewCount: result.rows[0].viewcount });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Failed to increment view', error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error' });
   }
 });
 

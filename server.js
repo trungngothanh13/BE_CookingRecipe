@@ -83,6 +83,11 @@ try {
   app.use('/api/images', imageRoutes);
   console.log('Image routes configured successfully');
 
+  // Order routes
+  const orderRoutes = require('./src/routes/orders');
+  app.use('/api/orders', orderRoutes);
+  console.log('Order routes configured successfully');
+
 } catch (error) {
   console.error('Error importing routes:', error);
 }

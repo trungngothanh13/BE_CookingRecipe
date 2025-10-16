@@ -41,7 +41,18 @@ CREATE TABLE Recipe (
     Description TEXT,
     UserID INTEGER REFERENCES "User"(UserID) ON DELETE CASCADE,
     CreatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    UpdatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    UpdatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    -- New fields for video and selling
+    YouTubeVideoID VARCHAR(50), -- YouTube video ID
+    VideoThumbnail TEXT, -- YouTube thumbnail URL
+    Price DECIMAL(10,2) DEFAULT 0.00, -- Price in USD
+    IsForSale BOOLEAN DEFAULT false, -- Whether recipe is for sale
+    Difficulty VARCHAR(20) DEFAULT 'Medium', -- Easy, Medium, Hard
+    Servings INTEGER DEFAULT 1, -- Number of servings
+    Category VARCHAR(50), -- Vietnamese, Asian, Western, Dessert, etc.
+    Tags TEXT[], -- Array of tags for better search
+    ViewCount INTEGER DEFAULT 0, -- Number of views
+    PurchaseCount INTEGER DEFAULT 0 -- Number of purchases
 );
 
 -- Create Images table
@@ -82,4 +93,36 @@ CREATE TABLE Rating (
     RatingScore INTEGER CHECK (RatingScore >= 1 AND RatingScore <= 5),
     CreatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     UNIQUE(RecipeID, UserID) -- One rating per user per recipe
+);
+
+-- Create Orders table
+CREATE TABLE Orders (
+    OrderID SERIAL PRIMARY KEY,
+    UserID INTEGER REFERENCES "User"(UserID) ON DELETE CASCADE,
+    TotalAmount DECIMAL(10,2) NOT NULL,
+    Status VARCHAR(20) DEFAULT 'pending', -- pending, paid, cancelled, refunded
+    PaymentMethod VARCHAR(50), -- stripe, paypal, etc.
+    PaymentIntentID VARCHAR(255), -- Payment provider transaction ID
+    CreatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UpdatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Create OrderItems table
+CREATE TABLE OrderItems (
+    OrderItemID SERIAL PRIMARY KEY,
+    OrderID INTEGER REFERENCES Orders(OrderID) ON DELETE CASCADE,
+    RecipeID INTEGER REFERENCES Recipe(RecipeID) ON DELETE CASCADE,
+    Price DECIMAL(10,2) NOT NULL, -- Price at time of purchase
+    Quantity INTEGER DEFAULT 1,
+    CreatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Create UserPurchases table (for tracking what users have bought)
+CREATE TABLE UserPurchases (
+    PurchaseID SERIAL PRIMARY KEY,
+    UserID INTEGER REFERENCES "User"(UserID) ON DELETE CASCADE,
+    RecipeID INTEGER REFERENCES Recipe(RecipeID) ON DELETE CASCADE,
+    OrderID INTEGER REFERENCES Orders(OrderID) ON DELETE CASCADE,
+    PurchaseDate TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(UserID, RecipeID) -- One purchase per user per recipe
 );
