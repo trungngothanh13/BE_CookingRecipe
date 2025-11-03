@@ -50,7 +50,11 @@ const swaggerOptions = {
 const swaggerSpec = swaggerJsdoc(swaggerOptions);
 
 app.use(cors({
-  origin: '*',  // Allow all origins (for testing only!)
+  origin: [
+    'http://localhost:3000', // Local development
+    'https://fe-cooking-recipe-cni752q81-phm-duy-tuns-projects.vercel.app', // Production frontend
+    'https://fe-cooking-recipe.vercel.app' // Alternative Vercel URL
+  ],
   credentials: true
 }));
 app.use(express.json({ limit: '10mb' })); // Image upload limit
