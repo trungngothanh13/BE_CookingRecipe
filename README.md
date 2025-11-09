@@ -1,22 +1,12 @@
 # BE_CookingRecipe
 Server side of Cooking Recipe website
 
-## Install these libraries
-`npm install express cors dotenv`
-`npm install swagger-ui-express swagger-jsdoc`
-`npm install -D nodemon`
-`npm install pg`
-`npm install bcrypt jsonwebtoken`
-
-## Testing the server
-`npm run dev`
-
-## Paste this to package.json (contain installed dependencies)
+## Paste this to package.json
 ```bash
 {
   "dependencies": {
     "bcrypt": "^6.0.0",
-    "cloudinary": "^1.41.0",
+    "cloudinary": "^1.41.3",
     "cors": "^2.8.5",
     "dotenv": "^17.2.2",
     "express": "^5.1.0",
@@ -30,11 +20,24 @@ Server side of Cooking Recipe website
     "start": "node server.js",
     "dev": "nodemon server.js"
   },
+  "engines": {
+    "node": ">=16.0.0"
+  },
   "devDependencies": {
     "nodemon": "^3.1.10"
   }
 }
 ```
+
+## Install dependencies
+```bash
+npm install
+```
+This will install all the dependencies listed in your `package.json` file.
+
+
+## Testing the server
+`npm run dev`
 
 ## To access protected endpoints (such as viewing user profile):
 **Get a Token**: Login or register first - this generates a JWT token valid for 24 hours
