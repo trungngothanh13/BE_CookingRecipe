@@ -180,7 +180,7 @@ router.put('/:id', authenticateToken, requireAdmin, async (req, res) => {
     }
 
     res.status(500).json({
-        success: false,
+      success: false,
       message: 'Failed to update recipe',
       error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
     });
