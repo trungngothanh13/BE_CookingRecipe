@@ -19,6 +19,15 @@ function errorHandler(error, req, res, next) {
     });
   }
   
+  // CORS error
+  if (error.message && error.message.includes('CORS')) {
+    return res.status(403).json({
+      success: false,
+      message: 'CORS: Origin not allowed',
+      error: 'Access denied'
+    });
+  }
+  
   // Default error response
   res.status(500).json({
     success: false,

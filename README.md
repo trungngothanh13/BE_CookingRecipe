@@ -45,6 +45,16 @@ This will install all the dependencies listed in your `package.json` file.
 - **API Documentation**: Press the "Authorize" button and paste the token
 - **Frontend**: Include token in Authorization header: `Authorization: Bearer <token>`
 
+## Deploy API to Render
+Ensure these are set in "Environment" tab:
+```bash
+NODE_ENV = production
+DATABASE_URL = (automatically set by Render - don't add manually)
+JWT_SECRET = your_secret_key_here
+CLOUDINARY_CLOUD_NAME = your_cloudinary_name
+CLOUDINARY_API_KEY = your_cloudinary_key
+CLOUDINARY_API_SECRET = your_cloudinary_secret
+```
 
 ## Connect to Postgres on Render
 Example: External Database URL `postgresql://recipeuser:cwWONKbXk559qjKJmvy3axfBvqtcajC3@dpg-d3df1ur7mgec73cqk8d0-a.oregon-postgres.render.com/recipedb_s07c`

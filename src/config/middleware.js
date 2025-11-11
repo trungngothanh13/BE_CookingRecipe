@@ -6,10 +6,12 @@ const cors = require('cors');
  * @param {Express} app - Express application instance
  */
 function setupMiddleware(app) {
-  // CORS configuration
+  // CORS configuration - Allow all origins for now
   app.use(cors({
-    origin: '*',  // Allow all origins (for testing only!)
-    credentials: true
+    origin: true, // Allow all origins
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization']
   }));
 
   // Body parser middleware
