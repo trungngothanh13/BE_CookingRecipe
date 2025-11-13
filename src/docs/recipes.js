@@ -67,6 +67,9 @@
  *                             type: string
  *                           description:
  *                             type: string
+ *                           videoUrl:
+ *                             type: string
+ *                             description: YouTube video URL (publicly accessible)
  *                           videoThumbnail:
  *                             type: string
  *                           price:
@@ -277,7 +280,9 @@
  *     tags:
  *       - Recipes
  *     summary: Get recipe detail (Admin or Purchased users only)
- *     description: Get full recipe details including ingredients, instructions, and nutrition. Only admins or users who have purchased the recipe can access.
+ *     description: |
+ *       Get full recipe details including ingredients, instructions, and nutrition. 
+ *       Only admins or users who have purchased the recipe can access.
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -308,6 +313,7 @@
  *                       type: string
  *                     videoUrl:
  *                       type: string
+ *                       description: YouTube video URL (always included)
  *                     videoThumbnail:
  *                       type: string
  *                     price:
@@ -328,12 +334,52 @@
  *                       type: number
  *                     totalRatings:
  *                       type: integer
+ *                     createdAt:
+ *                       type: string
+ *                       format: date-time
+ *                     updatedAt:
+ *                       type: string
+ *                       format: date-time
  *                     ingredients:
  *                       type: array
+ *                       description: Only included if user has purchased recipe or is admin
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           id:
+ *                             type: integer
+ *                           label:
+ *                             type: string
+ *                           quantity:
+ *                             type: number
+ *                           measurement:
+ *                             type: string
  *                     instructions:
  *                       type: array
+ *                       description: Only included if user has purchased recipe or is admin
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           id:
+ *                             type: integer
+ *                           step:
+ *                             type: integer
+ *                           content:
+ *                             type: string
  *                     nutrition:
  *                       type: array
+ *                       description: Only included if user has purchased recipe or is admin
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           id:
+ *                             type: integer
+ *                           type:
+ *                             type: string
+ *                           quantity:
+ *                             type: number
+ *                           measurement:
+ *                             type: string
  *       401:
  *         description: Authentication required
  *       403:

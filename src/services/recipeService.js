@@ -550,6 +550,7 @@ async function getRecipesOverview(options = {}) {
       r.recipeid as id,
       r.recipetitle as title,
       r.description,
+      r.videourl as "videoUrl",
       r.videothumbnail,
       r.price,
       r.difficulty,
@@ -618,7 +619,7 @@ async function getRecipesOverview(options = {}) {
   }
 
   // Group by for aggregation
-  query += ` GROUP BY r.recipeid, r.recipetitle, r.description, r.videothumbnail, r.price, 
+  query += ` GROUP BY r.recipeid, r.recipetitle, r.description, r.videourl, r.videothumbnail, r.price, 
     r.difficulty, r.cookingtime, r.servings, r.category, r.viewcount, r.purchasecount`;
 
   // Sorting
@@ -712,6 +713,7 @@ async function getRecipesOverview(options = {}) {
       id: recipe.id,
       title: recipe.title,
       description: recipe.description,
+      videoUrl: recipe.videoUrl,
       videoThumbnail: recipe.videothumbnail,
       price: parseFloat(recipe.price),
       difficulty: recipe.difficulty,
@@ -733,14 +735,14 @@ async function getRecipesOverview(options = {}) {
 }
 
 /**
- * Get recipe detail (admin or purchased users only)
+ * Get recipe detail (admin or purchased users only - video URL always included)
  * @param {number} recipeId - Recipe ID
- * @param {number} userId - User ID (null for unauthenticated)
- * @param {string} userRole - User role (null for unauthenticated)
- * @returns {Promise<Object>} Full recipe details
+ * @param {number} userId - User ID (required - authentication required)
+ * @param {string} userRole - User role
+ * @returns {Promise<Object>} Full recipe details including video URL
  * @throws {Error} If recipe not found or access denied
  */
-async function getRecipeDetail(recipeId, userId = null, userRole = null) {
+async function getRecipeDetail(recipeId, userId, userRole) {
   const client = await pool.connect();
   
   try {
@@ -767,7 +769,7 @@ async function getRecipeDetail(recipeId, userId = null, userRole = null) {
 
     const recipe = recipeResult.rows[0];
 
-    // Check access: admin or purchased user
+    // Check access: admin or purchased user (original access control)
     if (userRole !== 'admin' && userId) {
       const purchaseCheck = await client.query(
         'SELECT purchaseid FROM Purchase WHERE userid = $1 AND recipeid = $2',
@@ -818,7 +820,7 @@ async function getRecipeDetail(recipeId, userId = null, userRole = null) {
       id: recipe.recipeid,
       title: recipe.recipetitle,
       description: recipe.description,
-      videoUrl: recipe.videourl,
+      videoUrl: recipe.videourl, // Always included
       videoThumbnail: recipe.videothumbnail,
       price: parseFloat(recipe.price),
       difficulty: recipe.difficulty,
