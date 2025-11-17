@@ -101,55 +101,6 @@ router.get('/all', authenticateToken, requireAdmin, async (req, res) => {
   }
 });
 
-router.get('/:id', authenticateToken, async (req, res) => {
-  try {
-    const transactionId = parseInt(req.params.id);
-    const userId = req.user.userId;
-    const userRole = req.user.role;
-
-    if (isNaN(transactionId)) {
-      return res.status(400).json({
-        success: false,
-        message: 'Invalid transaction ID'
-      });
-    }
-
-    const transaction = await transactionService.getTransactionDetail(
-      transactionId,
-      userId,
-      userRole
-    );
-
-    res.json({
-      success: true,
-      data: transaction
-    });
-
-  } catch (error) {
-    console.error('Get transaction detail error:', error);
-    
-    if (error.message === 'Transaction not found') {
-      return res.status(404).json({
-        success: false,
-        message: error.message
-      });
-    }
-
-    if (error.message.includes('Access denied')) {
-      return res.status(403).json({
-        success: false,
-        message: error.message
-      });
-    }
-
-    res.status(500).json({
-      success: false,
-      message: 'Failed to retrieve transaction details',
-      error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
-    });
-  }
-});
-
 router.put('/:id/payment', authenticateToken, upload.single('paymentProof'), async (req, res) => {
   try {
     const transactionId = parseInt(req.params.id);

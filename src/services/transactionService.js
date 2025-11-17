@@ -204,77 +204,6 @@ async function getUserTransactions(userId, status = null) {
 }
 
 /**
- * Get transaction details with recipes
- * @param {number} transactionId - Transaction ID
- * @param {number} userId - User ID (for non-admin users to verify ownership)
- * @param {string} userRole - User role (admin can view any transaction)
- * @returns {Promise<Object>} Transaction details with recipes
- * @throws {Error} If transaction not found or access denied
- */
-async function getTransactionDetail(transactionId, userId = null, userRole = null) {
-  const client = await pool.connect();
-  
-  try {
-    // Get transaction
-    const transactionResult = await client.query(
-      `SELECT 
-        transactionid, userid, totalamount, paymentmethod, paymentproof,
-        status, adminnotes, createdat, verifiedat, verifiedby
-      FROM Transaction
-      WHERE transactionid = $1`,
-      [transactionId]
-    );
-
-    if (transactionResult.rows.length === 0) {
-      throw new Error('Transaction not found');
-    }
-
-    const transaction = transactionResult.rows[0];
-
-    // Check access (admin or owner)
-    if (userRole !== 'admin' && (!userId || transaction.userid !== userId)) {
-      throw new Error('Access denied. You do not have permission to view this transaction.');
-    }
-
-    // Get recipes in transaction
-    const recipesResult = await client.query(
-      `SELECT 
-        tr.recipeid,
-        r.recipetitle as title,
-        r.videothumbnail as "videoThumbnail",
-        tr.price
-      FROM Transaction_Recipe tr
-      JOIN Recipe r ON tr.recipeid = r.recipeid
-      WHERE tr.transactionid = $1
-      ORDER BY tr.recipeid`,
-      [transactionId]
-    );
-
-    return {
-      id: transaction.transactionid,
-      userId: transaction.userid,
-      totalAmount: parseFloat(transaction.totalamount),
-      paymentMethod: transaction.paymentmethod,
-      paymentProof: transaction.paymentproof,
-      status: transaction.status,
-      adminNotes: transaction.adminnotes,
-      createdAt: transaction.createdat,
-      verifiedAt: transaction.verifiedat,
-      verifiedBy: transaction.verifiedby,
-      recipes: recipesResult.rows.map(recipe => ({
-        recipeId: recipe.recipeid,
-        title: recipe.title,
-        videoThumbnail: recipe.videothumbnail,
-        price: parseFloat(recipe.price)
-      }))
-    };
-
-  } finally {
-    client.release();
-  }
-}
-
-/**
  * Get all transactions (admin only)
  * @param {Object} options - Filter options
  * @param {string} options.status - Filter by status
@@ -298,6 +227,7 @@ async function getAllTransactions(options = {}) {
       u.username,
       t.totalamount as "totalAmount",
       t.paymentmethod as "paymentMethod",
+      t.paymentproof as "paymentProof",
       t.status,
       t.createdat as "createdAt",
       t.verifiedat as "verifiedAt",
@@ -325,7 +255,7 @@ async function getAllTransactions(options = {}) {
 
   query += `
     GROUP BY t.transactionid, t.userid, u.username, t.totalamount, 
-             t.paymentmethod, t.status, t.createdat, t.verifiedat
+             t.paymentmethod, t.paymentproof, t.status, t.createdat, t.verifiedat
     ORDER BY t.createdat DESC
     LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
   `;
@@ -363,6 +293,7 @@ async function getAllTransactions(options = {}) {
       username: t.username,
       totalAmount: parseFloat(t.totalAmount),
       paymentMethod: t.paymentMethod,
+      paymentProof: t.paymentProof,
       status: t.status,
       createdAt: t.createdAt,
       verifiedAt: t.verifiedAt,
@@ -545,7 +476,6 @@ module.exports = {
   createTransaction,
   submitPayment,
   getUserTransactions,
-  getTransactionDetail,
   getAllTransactions,
   verifyTransaction,
   rejectTransaction

@@ -184,67 +184,6 @@
  *       500:
  *         description: Server error
  *
- * /api/transactions/{id}:
- *   get:
- *     tags:
- *       - Transactions
- *     summary: Get transaction details
- *     description: Get detailed information about a specific transaction including all recipes. Users can only view their own transactions unless they are admin.
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: integer
- *         description: Transaction ID
- *         example: 1
- *     responses:
- *       200:
- *         description: Transaction details retrieved successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                   example: true
- *                 data:
- *                   type: object
- *                   properties:
- *                     id:
- *                       type: integer
- *                     userId:
- *                       type: integer
- *                     totalAmount:
- *                       type: number
- *                     paymentMethod:
- *                       type: string
- *                     paymentProof:
- *                       type: string
- *                     status:
- *                       type: string
- *                     adminNotes:
- *                       type: string
- *                     createdAt:
- *                       type: string
- *                     verifiedAt:
- *                       type: string
- *                     verifiedBy:
- *                       type: integer
- *                     recipes:
- *                       type: array
- *                       items:
- *                         type: object
- *       403:
- *         description: Access denied
- *       404:
- *         description: Transaction not found
- *       500:
- *         description: Server error
- *
  * /api/transactions/{id}/payment:
  *   put:
  *     tags:
