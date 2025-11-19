@@ -341,8 +341,3 @@ Thay đổi PORT trong `.env` hoặc dừng process đang sử dụng port đó.
 ## License
 
 Dự án này được phát triển cho mục đích học tập.
-
-## Tác giả
-
-Phát triển bởi nhóm MSIS207.Q12.CTTT
-
