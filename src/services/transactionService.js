@@ -155,6 +155,7 @@ async function submitPayment(transactionId, userId, paymentMethod, paymentProof)
  * @returns {Promise<Array>} List of transactions
  */
 async function getUserTransactions(userId, status = null) {
+  // First get all transactions
   let query = `
     SELECT 
       t.transactionid as id,
@@ -166,10 +167,8 @@ async function getUserTransactions(userId, status = null) {
       t.adminnotes as "adminNotes",
       t.createdat as "createdAt",
       t.verifiedat as "verifiedAt",
-      t.verifiedby as "verifiedBy",
-      COUNT(tr.recipeid) as "recipeCount"
+      t.verifiedby as "verifiedBy"
     FROM Transaction t
-    LEFT JOIN Transaction_Recipe tr ON t.transactionid = tr.transactionid
     WHERE t.userid = $1
   `;
   
@@ -180,27 +179,50 @@ async function getUserTransactions(userId, status = null) {
     params.push(status);
   }
   
-  query += `
-    GROUP BY t.transactionid, t.userid, t.totalamount, t.paymentmethod, t.paymentproof,
-             t.status, t.adminnotes, t.createdat, t.verifiedat, t.verifiedby
-    ORDER BY t.createdat DESC
-  `;
+  query += ` ORDER BY t.createdat DESC`;
 
-  const result = await pool.query(query, params);
+  const transactionsResult = await pool.query(query, params);
 
-  return result.rows.map(transaction => ({
-    id: transaction.id,
-    userId: transaction.userId,
-    totalAmount: parseFloat(transaction.totalAmount),
-    paymentMethod: transaction.paymentMethod,
-    paymentProof: transaction.paymentProof,
-    status: transaction.status,
-    adminNotes: transaction.adminNotes,
-    createdAt: transaction.createdAt,
-    verifiedAt: transaction.verifiedAt,
-    verifiedBy: transaction.verifiedBy,
-    recipeCount: parseInt(transaction.recipeCount)
-  }));
+  // For each transaction, get its recipes
+  const transactionsWithRecipes = await Promise.all(
+    transactionsResult.rows.map(async (transaction) => {
+      const recipesQuery = `
+        SELECT 
+          tr.recipeid as "recipeId",
+          r.recipetitle as title,
+          r.videothumbnail as "videoThumbnail",
+          tr.price
+        FROM Transaction_Recipe tr
+        JOIN Recipe r ON tr.recipeid = r.recipeid
+        WHERE tr.transactionid = $1
+        ORDER BY tr.recipeid
+      `;
+      
+      const recipesResult = await pool.query(recipesQuery, [transaction.id]);
+      
+      return {
+        id: transaction.id,
+        userId: transaction.userId,
+        totalAmount: parseFloat(transaction.totalAmount),
+        paymentMethod: transaction.paymentMethod,
+        paymentProof: transaction.paymentProof,
+        status: transaction.status,
+        adminNotes: transaction.adminNotes,
+        createdAt: transaction.createdAt,
+        verifiedAt: transaction.verifiedAt,
+        verifiedBy: transaction.verifiedBy,
+        recipeCount: recipesResult.rows.length,
+        recipes: recipesResult.rows.map(recipe => ({
+          recipeId: recipe.recipeId,
+          title: recipe.title,
+          videoThumbnail: recipe.videoThumbnail,
+          price: parseFloat(recipe.price)
+        }))
+      };
+    })
+  );
+
+  return transactionsWithRecipes;
 }
 
 /**
