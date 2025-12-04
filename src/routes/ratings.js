@@ -98,38 +98,6 @@ router.get('/recipe/:recipeId', async (req, res) => {
   }
 });
 
-
-router.get('/my-rating/:recipeId', authenticateToken, async (req, res) => {
-  try {
-    const recipeId = parseInt(req.params.recipeId);
-    const userId = req.user.userId;
-
-    if (isNaN(recipeId)) {
-      return res.status(400).json({
-        success: false,
-        message: 'Invalid recipe ID'
-      });
-    }
-
-    const rating = await ratingService.getUserRating(userId, recipeId);
-
-    res.json({
-      success: true,
-      data: rating
-    });
-
-  } catch (error) {
-    console.error('Get user rating error:', error);
-    
-    res.status(500).json({
-      success: false,
-      message: 'Failed to fetch your rating',
-      error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
-    });
-  }
-});
-
-
 router.delete('/:ratingId', authenticateToken, async (req, res) => {
   try {
     const ratingId = parseInt(req.params.ratingId);

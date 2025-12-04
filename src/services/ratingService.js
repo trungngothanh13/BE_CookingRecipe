@@ -156,47 +156,6 @@ async function getRecipeRatings(recipeId) {
 }
 
 /**
- * Get user's rating for a specific recipe
- * @param {number} userId - User ID
- * @param {number} recipeId - Recipe ID
- * @returns {Promise<Object|null>} Rating data or null if not rated
- */
-async function getUserRating(userId, recipeId) {
-  try {
-    const result = await pool.query(
-      `SELECT 
-        ratingid as id,
-        recipeid as "recipeId",
-        userid as "userId",
-        ratingscore as "ratingScore",
-        comment,
-        createdat as "createdAt",
-        updatedat as "updatedAt"
-      FROM Rating
-      WHERE userid = $1 AND recipeid = $2`,
-      [userId, recipeId]
-    );
-
-    if (result.rows.length === 0) {
-      return null;
-    }
-
-    return {
-      id: result.rows[0].id,
-      recipeId: result.rows[0].recipeId,
-      userId: result.rows[0].userId,
-      ratingScore: result.rows[0].ratingScore,
-      comment: result.rows[0].comment,
-      createdAt: result.rows[0].createdAt,
-      updatedAt: result.rows[0].updatedAt
-    };
-
-  } catch (error) {
-    throw error;
-  }
-}
-
-/**
  * Delete a rating (user can delete their own rating)
  * @param {number} ratingId - Rating ID
  * @param {number} userId - User ID requesting deletion
@@ -242,7 +201,6 @@ async function deleteRating(ratingId, userId) {
 module.exports = {
   createOrUpdateRating,
   getRecipeRatings,
-  getUserRating,
   deleteRating
 };
 

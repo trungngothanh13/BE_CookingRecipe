@@ -145,52 +145,6 @@
  *         description: Recipe not found
  */
 
-/**
- * @swagger
- * /api/ratings/my-rating/{recipeId}:
- *   get:
- *     tags:
- *       - Ratings
- *     summary: Get current user's rating for a recipe
- *     description: Get the authenticated user's rating for a specific recipe
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: recipeId
- *         required: true
- *         schema:
- *           type: integer
- *         description: Recipe ID
- *     responses:
- *       200:
- *         description: User rating retrieved successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                 data:
- *                   type: object
- *                   nullable: true
- *                   properties:
- *                     id:
- *                       type: integer
- *                     recipeId:
- *                       type: integer
- *                     userId:
- *                       type: integer
- *                     ratingScore:
- *                       type: integer
- *                     comment:
- *                       type: string
- *       401:
- *         description: Authentication required
- */
-
-/**
  * @swagger
  * /api/ratings/{ratingId}:
  *   delete:
