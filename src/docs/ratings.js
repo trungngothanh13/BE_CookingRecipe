@@ -145,6 +145,7 @@
  *         description: Recipe not found
  */
 
+/**
  * @swagger
  * /api/ratings/{ratingId}:
  *   delete:
