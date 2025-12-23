@@ -184,6 +184,98 @@
  *       500:
  *         description: Server error
  *
+ * /api/transactions/{id}:
+ *   get:
+ *     tags:
+ *       - Transactions
+ *     summary: Get transaction detail
+ *     description: Retrieve detailed information about a specific transaction including all recipes. Users can only view their own transactions, while admins can view any transaction.
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: Transaction ID
+ *         example: 1
+ *     responses:
+ *       200:
+ *         description: Transaction retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: integer
+ *                       example: 1
+ *                     userId:
+ *                       type: integer
+ *                       example: 2
+ *                     totalAmount:
+ *                       type: number
+ *                       format: float
+ *                       example: 19.98
+ *                     paymentMethod:
+ *                       type: string
+ *                       example: "Bank Transfer"
+ *                     paymentProof:
+ *                       type: string
+ *                       description: URL of payment proof image
+ *                     status:
+ *                       type: string
+ *                       enum: [pending, verified, rejected]
+ *                       example: "pending"
+ *                     adminNotes:
+ *                       type: string
+ *                       nullable: true
+ *                       description: Admin notes (if any)
+ *                     createdAt:
+ *                       type: string
+ *                       format: date-time
+ *                     verifiedAt:
+ *                       type: string
+ *                       format: date-time
+ *                       nullable: true
+ *                     verifiedBy:
+ *                       type: integer
+ *                       nullable: true
+ *                       description: Admin user ID who verified/rejected
+ *                     recipeCount:
+ *                       type: integer
+ *                       example: 2
+ *                     recipes:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           recipeId:
+ *                             type: integer
+ *                           title:
+ *                             type: string
+ *                           videoThumbnail:
+ *                             type: string
+ *                             nullable: true
+ *                           price:
+ *                             type: number
+ *                             format: float
+ *       400:
+ *         description: Invalid transaction ID
+ *       403:
+ *         description: Access denied
+ *       404:
+ *         description: Transaction not found
+ *       500:
+ *         description: Server error
+ *
  * /api/transactions/{id}/payment:
  *   put:
  *     tags:

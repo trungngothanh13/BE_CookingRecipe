@@ -101,6 +101,61 @@ router.get('/all', authenticateToken, requireAdmin, async (req, res) => {
   }
 });
 
+// Get transaction by ID - must come before /:id/payment, /:id/verify, /:id/reject
+// Note: This route must come after /all to avoid route conflict
+router.get('/:id', authenticateToken, async (req, res) => {
+  try {
+    // Skip if this is the /all route (shouldn't happen, but safety check)
+    if (req.params.id === 'all') {
+      return res.status(404).json({
+        success: false,
+        message: 'Transaction not found'
+      });
+    }
+
+    const transactionId = parseInt(req.params.id);
+    const userId = req.user.userId;
+    const userRole = req.user.role;
+
+    if (isNaN(transactionId)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid transaction ID'
+      });
+    }
+
+    const transaction = await transactionService.getTransactionById(transactionId, userId, userRole);
+
+    res.json({
+      success: true,
+      data: transaction
+    });
+
+  } catch (error) {
+    console.error('Get transaction detail error:', error);
+    
+    if (error.message === 'Transaction not found') {
+      return res.status(404).json({
+        success: false,
+        message: error.message
+      });
+    }
+
+    if (error.message.includes('Access denied') || error.message.includes('permission')) {
+      return res.status(403).json({
+        success: false,
+        message: error.message
+      });
+    }
+
+    res.status(500).json({
+      success: false,
+      message: 'Failed to retrieve transaction details',
+      error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+    });
+  }
+});
+
 router.put('/:id/payment', authenticateToken, upload.single('paymentProof'), async (req, res) => {
   try {
     const transactionId = parseInt(req.params.id);

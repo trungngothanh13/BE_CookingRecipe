@@ -494,11 +494,92 @@ async function rejectTransaction(transactionId, adminId, adminNotes) {
   }
 }
 
+/**
+ * Get transaction by ID
+ * @param {number} transactionId - Transaction ID
+ * @param {number} userId - User ID (for access control)
+ * @param {string} userRole - User role (for admin access)
+ * @returns {Promise<Object>} Transaction with full details including recipes
+ * @throws {Error} If transaction not found or access denied
+ */
+async function getTransactionById(transactionId, userId, userRole) {
+  const client = await pool.connect();
+  
+  try {
+    // Get transaction
+    const transactionResult = await client.query(
+      `SELECT 
+        t.transactionid as id,
+        t.userid as "userId",
+        t.totalamount as "totalAmount",
+        t.paymentmethod as "paymentMethod",
+        t.paymentproof as "paymentProof",
+        t.status,
+        t.adminnotes as "adminNotes",
+        t.createdat as "createdAt",
+        t.verifiedat as "verifiedAt",
+        t.verifiedby as "verifiedBy"
+      FROM Transaction t
+      WHERE t.transactionid = $1`,
+      [transactionId]
+    );
+
+    if (transactionResult.rows.length === 0) {
+      throw new Error('Transaction not found');
+    }
+
+    const transaction = transactionResult.rows[0];
+
+    // Check access: user can only see their own transactions, admin can see all
+    if (userRole !== 'admin' && transaction.userId !== userId) {
+      throw new Error('Access denied. You do not have permission to view this transaction.');
+    }
+
+    // Get recipes in transaction
+    const recipesResult = await client.query(
+      `SELECT 
+        tr.recipeid as "recipeId",
+        r.recipetitle as title,
+        r.videothumbnail as "videoThumbnail",
+        tr.price
+      FROM Transaction_Recipe tr
+      JOIN Recipe r ON tr.recipeid = r.recipeid
+      WHERE tr.transactionid = $1
+      ORDER BY tr.recipeid`,
+      [transactionId]
+    );
+
+    return {
+      id: transaction.id,
+      userId: transaction.userId,
+      totalAmount: parseFloat(transaction.totalAmount),
+      paymentMethod: transaction.paymentMethod,
+      paymentProof: transaction.paymentProof,
+      status: transaction.status,
+      adminNotes: transaction.adminNotes,
+      createdAt: transaction.createdAt,
+      verifiedAt: transaction.verifiedAt,
+      verifiedBy: transaction.verifiedBy,
+      recipeCount: recipesResult.rows.length,
+      recipes: recipesResult.rows.map(recipe => ({
+        recipeId: recipe.recipeId,
+        title: recipe.title,
+        videoThumbnail: recipe.videoThumbnail,
+        price: parseFloat(recipe.price)
+      }))
+    };
+
+  } finally {
+    client.release();
+  }
+}
+
 module.exports = {
   createTransaction,
   submitPayment,
   getUserTransactions,
   getAllTransactions,
+  getTransactionById,
   verifyTransaction,
   rejectTransaction
 };
