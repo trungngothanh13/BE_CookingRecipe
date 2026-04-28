@@ -1,91 +1,133 @@
 -- Drop existing tables if they exist (for clean setup)
+DROP TABLE IF EXISTS StudentProgress CASCADE;
+DROP TABLE IF EXISTS LessonContent CASCADE;
+DROP TABLE IF EXISTS Lesson CASCADE;
+DROP TABLE IF EXISTS Module CASCADE;
 DROP TABLE IF EXISTS Transaction CASCADE;
 DROP TABLE IF EXISTS Purchase CASCADE;
 DROP TABLE IF EXISTS Cart CASCADE;
-DROP TABLE IF EXISTS Nutrition CASCADE;
-DROP TABLE IF EXISTS Recipe_Instruction CASCADE;
-DROP TABLE IF EXISTS Recipe_Ingredient CASCADE;
-DROP TABLE IF EXISTS Transaction_Recipe CASCADE;
-DROP TABLE IF EXISTS Rating CASCADE;
-DROP TABLE IF EXISTS Recipe CASCADE;
+DROP TABLE IF EXISTS CourseReview CASCADE;
+DROP TABLE IF EXISTS Course CASCADE;
 DROP TABLE IF EXISTS "User" CASCADE;
 
 -- Create Users table with role support
 CREATE TABLE "User" (
     UserID SERIAL PRIMARY KEY,
     Username VARCHAR(50) UNIQUE NOT NULL,
+    Email VARCHAR(100) UNIQUE NOT NULL,
     Password VARCHAR(100) NOT NULL,
     ProfilePicture TEXT,
     Role VARCHAR(20) DEFAULT 'user' CHECK (Role IN ('user', 'admin')),
-    CreatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
--- Create Recipes table with selling features
-CREATE TABLE Recipe (
-    RecipeID SERIAL PRIMARY KEY,
-    RecipeTitle VARCHAR(255) NOT NULL,
-    Description TEXT,
-    VideoUrl TEXT,
-    VideoThumbnail TEXT,
-    Price DECIMAL(10, 2) DEFAULT 0.00,
-    IsForSale BOOLEAN DEFAULT true,
-    Difficulty VARCHAR(20) CHECK (Difficulty IN ('easy', 'medium', 'hard')),
-    CookingTime INTEGER, -- in minutes
-    Servings INTEGER,
-    Category VARCHAR(50),
-    ViewCount INTEGER DEFAULT 0,
-    PurchaseCount INTEGER DEFAULT 0,
-    UserID INTEGER REFERENCES "User"(UserID) ON DELETE CASCADE,
     CreatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     UpdatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Create Recipe_Ingredient table (recipe-specific ingredients with quantities)
-CREATE TABLE Recipe_Ingredient (
-    RecipeIngredientID SERIAL PRIMARY KEY,
-    RecipeID INTEGER REFERENCES Recipe(RecipeID) ON DELETE CASCADE,
-    Label VARCHAR(100) NOT NULL,
-    Quantity DECIMAL(10, 2),
-    Measurement VARCHAR(20)
+-- Create Courses table (hardcoded by admin through API)
+CREATE TABLE Course (
+    CourseID SERIAL PRIMARY KEY,
+    CourseTitle VARCHAR(255) NOT NULL,
+    Description TEXT,
+    ThumbNail TEXT,
+    Price DECIMAL(10, 2) DEFAULT 0.00,
+    Difficulty VARCHAR(20) CHECK (Difficulty IN ('beginner', 'intermediate', 'advanced')),
+    Duration INTEGER, -- in minutes (total for all lessons)
+    LessonCount INTEGER DEFAULT 0,
+    Category VARCHAR(50),
+    ViewCount INTEGER DEFAULT 0,
+    PurchaseCount INTEGER DEFAULT 0,
+    AverageRating DECIMAL(3, 2) DEFAULT 0.00,
+    CreatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UpdatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Create Recipe_Instruction table (recipe-specific instructions)
-CREATE TABLE Recipe_Instruction (
-    RecipeInstructionID SERIAL PRIMARY KEY,
-    RecipeID INTEGER REFERENCES Recipe(RecipeID) ON DELETE CASCADE,
-    Step INTEGER NOT NULL,
-    Content TEXT NOT NULL
+-- Create Modules table (groups lessons within a course)
+CREATE TABLE Module (
+    ModuleID SERIAL PRIMARY KEY,
+    CourseID INTEGER REFERENCES Course(CourseID) ON DELETE CASCADE,
+    ModuleTitle VARCHAR(255) NOT NULL,
+    Description TEXT,
+    ModuleOrder INTEGER NOT NULL, -- Position in course
+    CreatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UpdatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Create Rating table (only purchasers can rate)
-CREATE TABLE Rating (
-    RatingID SERIAL PRIMARY KEY,
-    RecipeID INTEGER REFERENCES Recipe(RecipeID) ON DELETE CASCADE,
-    UserID INTEGER REFERENCES "User"(UserID) ON DELETE CASCADE,
-    RatingScore INTEGER CHECK (RatingScore >= 1 AND RatingScore <= 5),
-    Comment TEXT,
+-- Create Lessons table (individual content units)
+CREATE TABLE Lesson (
+    LessonID SERIAL PRIMARY KEY,
+    ModuleID INTEGER REFERENCES Module(ModuleID) ON DELETE CASCADE,
+    LessonTitle VARCHAR(255) NOT NULL,
+    Description TEXT,
+    LessonOrder INTEGER NOT NULL, -- Position in module
+    ContentType VARCHAR(20) CHECK (ContentType IN ('article', 'video', 'assignment')),
+    DurationMinutes INTEGER, -- For videos
+    CreatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UpdatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Create LessonContent table (polymorphic content storage)
+CREATE TABLE LessonContent (
+    ContentID SERIAL PRIMARY KEY,
+    LessonID INTEGER REFERENCES Lesson(LessonID) ON DELETE CASCADE,
+    ContentType VARCHAR(20) CHECK (ContentType IN ('article', 'video', 'assignment')),
+    
+    -- Article fields
+    ArticleText TEXT,
+    
+    -- Video fields
+    VideoUrl TEXT,
+    VideoDuration INTEGER, -- in seconds
+    
+    -- Assignment fields
+    AssignmentQuestions JSONB, -- Array of questions with options
+    PassingScore INTEGER DEFAULT 70, -- percentage
+    
     CreatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     UpdatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE(RecipeID, UserID)
+    UNIQUE(LessonID) -- One content per lesson
 );
 
--- Create Purchase table (tracks recipe purchases)
+-- Create StudentProgress table (tracks completion per student per lesson)
+CREATE TABLE StudentProgress (
+    ProgressID SERIAL PRIMARY KEY,
+    UserID INTEGER REFERENCES "User"(UserID) ON DELETE CASCADE,
+    LessonID INTEGER REFERENCES Lesson(LessonID) ON DELETE CASCADE,
+    IsCompleted BOOLEAN DEFAULT FALSE,
+    CompletedAt TIMESTAMP,
+    Score INTEGER, -- For assignments (0-100)
+    CreatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UpdatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(UserID, LessonID) -- One progress record per user per lesson
+);
+
+-- Create CourseReview table (students can rate courses they've purchased)
+CREATE TABLE CourseReview (
+    ReviewID SERIAL PRIMARY KEY,
+    CourseID INTEGER REFERENCES Course(CourseID) ON DELETE CASCADE,
+    UserID INTEGER REFERENCES "User"(UserID) ON DELETE CASCADE,
+    RatingScore INTEGER CHECK (RatingScore >= 1 AND RatingScore <= 5),
+    ReviewText TEXT,
+    CreatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UpdatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(CourseID, UserID) -- One review per user per course
+);
+
+-- Create Purchase table (tracks course purchases)
 CREATE TABLE Purchase (
     PurchaseID SERIAL PRIMARY KEY,
     UserID INTEGER REFERENCES "User"(UserID) ON DELETE CASCADE,
-    RecipeID INTEGER REFERENCES Recipe(RecipeID) ON DELETE CASCADE,
+    CourseID INTEGER REFERENCES Course(CourseID) ON DELETE CASCADE,
     Price DECIMAL(10, 2) NOT NULL,
     PurchasedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE(UserID, RecipeID) -- Prevent duplicate purchases
+    UNIQUE(UserID, CourseID) -- Prevent duplicate purchases
 );
 
--- Create Cart table (shopping cart)
+-- Create Cart table (shopping cart for courses)
 CREATE TABLE Cart (
     CartID SERIAL PRIMARY KEY,
     UserID INTEGER REFERENCES "User"(UserID) ON DELETE CASCADE,
-    RecipeID INTEGER REFERENCES Recipe(RecipeID) ON DELETE CASCADE,
+    CourseID INTEGER REFERENCES Course(CourseID) ON DELETE CASCADE,
     AddedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE(UserID, RecipeID) -- One entry per recipe per user
+    UNIQUE(UserID, CourseID) -- One entry per course per user
 );
 
 -- Create Transaction table (payment verification)
@@ -98,23 +140,16 @@ CREATE TABLE Transaction (
     Status VARCHAR(20) DEFAULT 'pending' CHECK (Status IN ('pending', 'verified', 'rejected')),
     AdminNotes TEXT,
     CreatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    VerifiedAt TIMESTAMP,
-    VerifiedBy INTEGER REFERENCES "User"(UserID) ON DELETE SET NULL
+    UpdatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Create Transaction_Recipe junction table (recipes in each transaction)
-CREATE TABLE Transaction_Recipe (
-    TransactionID INTEGER REFERENCES Transaction(TransactionID) ON DELETE CASCADE,
-    RecipeID INTEGER REFERENCES Recipe(RecipeID) ON DELETE CASCADE,
-    Price DECIMAL(10, 2) NOT NULL,
-    PRIMARY KEY (TransactionID, RecipeID)
-);
-
--- Create Nutrition table (optional nutrition information)
-CREATE TABLE Nutrition (
-    NutritionID SERIAL PRIMARY KEY,
-    RecipeID INTEGER REFERENCES Recipe(RecipeID) ON DELETE CASCADE,
-    Type VARCHAR(50) NOT NULL, -- e.g., 'calories', 'protein', 'carbs', 'fat'
-    Quantity DECIMAL(10, 2),
-    Measurement VARCHAR(20) -- e.g., 'kcal', 'g', 'mg'
-);
+-- Create indexes for better query performance
+CREATE INDEX idx_module_course ON Module(CourseID);
+CREATE INDEX idx_lesson_module ON Lesson(ModuleID);
+CREATE INDEX idx_progress_user_lesson ON StudentProgress(UserID, LessonID);
+CREATE INDEX idx_progress_completed ON StudentProgress(IsCompleted);
+CREATE INDEX idx_purchase_user ON Purchase(UserID);
+CREATE INDEX idx_purchase_course ON Purchase(CourseID);
+CREATE INDEX idx_cart_user ON Cart(UserID);
+CREATE INDEX idx_review_course ON CourseReview(CourseID);
+CREATE INDEX idx_review_user ON CourseReview(UserID);

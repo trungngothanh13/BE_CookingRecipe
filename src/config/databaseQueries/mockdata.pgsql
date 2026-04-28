@@ -1,171 +1,139 @@
--- Insert sample users (UserID order: admin, salsa_man, linguini, trungngothanh13)
--- Passwords (in order of UserID): "adminpassword", "password1", "password2", "Supernegative1"
-INSERT INTO "User" (Username, Password, Role) VALUES
-('admin', '$2b$10$DbrVlKXmFJf6IXo/jF3l5ONDBF1GWzZ4NC6s79rJNdOEnwdQfE1.S', 'admin'),
-('salsa_man', '$2b$10$WetrwTpaUmRmU1ieux92hO4cSO6EKDint6jPJa0GTeNvqzd1Ce1i6', 'user'),
-('linguini', '$2b$10$FsnyjyobjqtQ7jBedVP1F.VXqb3J1iBauU2wl.9zjfCoJ.Wxl8qWi', 'user'),
-('trungngothanh13', '$2b$10$kSRL9HRPlKCvv6HWJgvMSe40a8LpkxDAG7AbA8686jjwPZYebIlZy', 'user');
+-- Insert sample users
+-- Passwords: "adminpassword", "student1password", "student2password"
+INSERT INTO "User" (Username, Email, Password, Role) VALUES
+('admin', 'admin@cookingcourse.com', '$2b$10$DbrVlKXmFJf6IXo/jF3l5ONDBF1GWzZ4NC6s79rJNdOEnwdQfE1.S', 'admin'),
+('student_john', 'john@example.com', '$2b$10$FsnyjyobjqtQ7jBedVP1F.VXqb3J1iBauU2wl.9zjfCoJ.Wxl8qWi', 'user'),
+('student_sarah', 'sarah@example.com', '$2b$10$kSRL9HRPlKCvv6HWJgvMSe40a8LpkxDAG7AbA8686jjwPZYebIlZy', 'user');
 
--- Insert recipes with pricing and selling features
-INSERT INTO Recipe (RecipeTitle, Description, VideoUrl, VideoThumbnail, Price, IsForSale, Difficulty, CookingTime, Servings, Category, ViewCount, PurchaseCount, UserID) VALUES
-('Spaghetti Carbonara', 'Classic Italian pasta dish with eggs, cheese, and bacon. Perfect for a quick and delicious dinner.', 'https://www.youtube.com/watch?v=dQw4w9WgXcQ', 'https://example.com/carbonara-thumb.jpg', 9.99, true, 'medium', 20, 4, 'Italian', 150, 45, 1),
-('Chicken Curry', 'Spicy and flavorful curry with coconut milk. A traditional Indian dish that will warm your soul.', 'https://www.youtube.com/watch?v=jNQXAC9IVRw', 'https://example.com/curry-thumb.jpg', 12.99, true, 'hard', 45, 6, 'Indian', 200, 78, 1),
-('Beef Tacos', 'Quick and delicious tacos with seasoned ground beef. Perfect for family dinners or parties.', 'https://www.youtube.com/watch?v=EJXmH0r6Q8A', 'https://example.com/tacos-thumb.jpg', 7.99, true, 'easy', 30, 4, 'Mexican', 120, 92, 1),
-('Pad Thai', 'Sweet and tangy stir-fried rice noodles with shrimp and vegetables. Authentic Thai street food.', 'https://www.youtube.com/watch?v=9bZkp7q19f0', 'https://example.com/padthai-thumb.jpg', 11.99, true, 'medium', 25, 2, 'Thai', 180, 56, 1),
-('Caesar Salad', 'Fresh romaine lettuce with creamy Caesar dressing, croutons, and parmesan cheese.', 'https://www.youtube.com/watch?v=kJQP7kiw5Fk', 'https://example.com/salad-thumb.jpg', 6.99, true, 'easy', 15, 2, 'American', 95, 34, 1);
+-- Insert sample courses (admin-managed, hardcoded in system)
+-- Course 1: Italian Pasta Fundamentals
+-- Course 2: Thai Street Food Mastery
+INSERT INTO Course (CourseTitle, Description, ThumbNail, Price, Difficulty, Duration, LessonCount, Category, ViewCount, PurchaseCount, AverageRating) VALUES
+('Italian Pasta Fundamentals', 'Learn the art of making perfect pasta from scratch. This beginner-friendly course covers pasta basics, sauce pairing, and classic Italian recipes.', 'https://example.com/pasta-thumb.jpg', 49.99, 'beginner', 180, 6, 'Italian', 523, 42, 4.5),
+('Thai Street Food Mastery', 'Master authentic Thai cooking techniques and create restaurant-quality dishes at home. Includes knife skills, traditional ingredients, and signature recipes.', 'https://example.com/thai-thumb.jpg', 59.99, 'intermediate', 240, 8, 'Thai', 287, 18, 4.8);
 
--- Insert recipe ingredients (recipe-specific)
--- Spaghetti Carbonara
-INSERT INTO Recipe_Ingredient (RecipeID, Label, Quantity, Measurement) VALUES
-(1, 'Spaghetti pasta', 400, 'grams'),
-(1, 'Eggs', 4, 'pieces'),
-(1, 'Bacon', 200, 'grams'),
-(1, 'Parmesan cheese', 100, 'grams'),
-(1, 'Black pepper', 1, 'teaspoon');
+-- Insert modules for Course 1 (Italian Pasta)
+-- Module 1: Pasta Basics
+INSERT INTO Module (CourseID, ModuleTitle, Description, ModuleOrder) VALUES
+(1, 'Pasta Basics', 'Learn the fundamentals of pasta making: types, ingredients, and preparation', 1),
+(1, 'Sauces & Pairings', 'Discover how to make traditional Italian sauces and pair them perfectly', 2),
+(1, 'Classic Recipes', 'Master iconic Italian pasta dishes', 3);
 
--- Chicken Curry
-INSERT INTO Recipe_Ingredient (RecipeID, Label, Quantity, Measurement) VALUES
-(2, 'Chicken breast', 500, 'grams'),
-(2, 'Curry powder', 2, 'tablespoons'),
-(2, 'Coconut milk', 400, 'ml'),
-(2, 'Onions', 2, 'pieces'),
-(2, 'Garlic', 4, 'cloves'),
-(2, 'Ginger', 1, 'tablespoon');
+-- Insert modules for Course 2 (Thai Food)
+-- Module 1: Thai Fundamentals
+INSERT INTO Module (CourseID, ModuleTitle, Description, ModuleOrder) VALUES
+(2, 'Thai Fundamentals', 'Introduction to Thai cuisine, ingredients, and cooking methods', 1),
+(2, 'Knife Skills & Prep', 'Traditional Thai knife techniques and ingredient preparation', 2),
+(2, 'Signature Dishes', 'Learn to cook authentic Thai street food favorites', 3);
 
--- Beef Tacos
-INSERT INTO Recipe_Ingredient (RecipeID, Label, Quantity, Measurement) VALUES
-(3, 'Ground beef', 500, 'grams'),
-(3, 'Taco shells', 8, 'pieces'),
-(3, 'Lettuce', 1, 'head'),
-(3, 'Tomatoes', 2, 'pieces'),
-(3, 'Cheese', 200, 'grams'),
-(3, 'Sour cream', 100, 'ml');
+-- Insert lessons for Course 1, Module 1 (Pasta Basics)
+INSERT INTO Lesson (ModuleID, LessonTitle, Description, LessonOrder, ContentType, DurationMinutes) VALUES
+(1, 'Types of Pasta', 'Understand different pasta shapes and their uses', 1, 'video', 15),
+(1, 'Making Fresh Pasta Dough', 'Step-by-step guide to creating pasta dough from scratch', 2, 'article', 0),
+(1, 'Pasta Shaping Techniques', 'Learn various methods to shape pasta at home', 3, 'video', 20);
 
--- Pad Thai
-INSERT INTO Recipe_Ingredient (RecipeID, Label, Quantity, Measurement) VALUES
-(4, 'Rice noodles', 200, 'grams'),
-(4, 'Shrimp', 300, 'grams'),
-(4, 'Bean sprouts', 100, 'grams'),
-(4, 'Eggs', 2, 'pieces'),
-(4, 'Fish sauce', 2, 'tablespoons'),
-(4, 'Tamarind paste', 1, 'tablespoon');
+-- Insert lessons for Course 1, Module 2 (Sauces)
+INSERT INTO Lesson (ModuleID, LessonTitle, Description, LessonOrder, ContentType, DurationMinutes) VALUES
+(2, 'Tomato-Based Sauces', 'Create authentic Italian tomato sauces', 1, 'video', 25),
+(2, 'Cream Sauces', 'Master creamy sauces like carbonara and alfredo', 2, 'article', 0);
 
--- Caesar Salad
-INSERT INTO Recipe_Ingredient (RecipeID, Label, Quantity, Measurement) VALUES
-(5, 'Romaine lettuce', 1, 'head'),
-(5, 'Caesar dressing', 100, 'ml'),
-(5, 'Croutons', 50, 'grams'),
-(5, 'Parmesan cheese', 50, 'grams');
+-- Insert lessons for Course 1, Module 3 (Recipes)
+INSERT INTO Lesson (ModuleID, LessonTitle, Description, LessonOrder, ContentType, DurationMinutes) VALUES
+(3, 'Spaghetti Carbonara Challenge', 'Test your skills with this classic recipe', 1, 'assignment', 0);
 
--- Insert recipe instructions
--- Spaghetti Carbonara
-INSERT INTO Recipe_Instruction (RecipeID, Step, Content) VALUES
-(1, 1, 'Cook spaghetti according to package instructions until al dente. Drain and set aside, reserving some pasta water.'),
-(1, 2, 'In a bowl, whisk eggs with grated Parmesan cheese and black pepper until well combined.'),
-(1, 3, 'Cook bacon in a large pan until crispy, then remove excess fat.'),
-(1, 4, 'Add hot pasta to the pan with bacon, remove from heat and quickly mix in egg mixture. Add pasta water if needed to create a creamy sauce. Serve immediately.');
+-- Insert lessons for Course 2, Module 1 (Thai Fundamentals)
+INSERT INTO Lesson (ModuleID, LessonTitle, Description, LessonOrder, ContentType, DurationMinutes) VALUES
+(4, 'Introduction to Thai Flavors', 'Explore the balance of sweet, sour, salty, and spicy', 1, 'video', 18),
+(4, 'Essential Thai Ingredients', 'Learn about staple ingredients used in Thai cooking', 2, 'article', 0);
 
--- Chicken Curry
-INSERT INTO Recipe_Instruction (RecipeID, Step, Content) VALUES
-(2, 1, 'Cut chicken into bite-sized pieces and season with salt and pepper.'),
-(2, 2, 'Heat oil in a large pan and cook onions until soft and translucent.'),
-(2, 3, 'Add minced garlic and ginger, cook for 1 minute until fragrant.'),
-(2, 4, 'Add chicken pieces and cook until golden brown on all sides.'),
-(2, 5, 'Add curry powder and cook for 1 minute to release flavors.'),
-(2, 6, 'Pour in coconut milk, bring to a boil, then reduce heat and simmer for 20 minutes until chicken is tender. Serve with rice.');
+-- Insert lessons for Course 2, Module 2 (Knife Skills)
+INSERT INTO Lesson (ModuleID, LessonTitle, Description, LessonOrder, ContentType, DurationMinutes) VALUES
+(5, 'Thai Knife Techniques', 'Master the proper knife grip and cutting techniques', 1, 'video', 22),
+(5, 'Ingredient Prep Guide', 'Learn how to prepare common Thai ingredients correctly', 2, 'article', 0);
 
--- Beef Tacos
-INSERT INTO Recipe_Instruction (RecipeID, Step, Content) VALUES
-(3, 1, 'Heat a large pan over medium-high heat and cook ground beef until browned, breaking it up as it cooks.'),
-(3, 2, 'Add taco seasoning and stir well. Cook for an additional 2 minutes.'),
-(3, 3, 'Warm taco shells according to package instructions.'),
-(3, 4, 'Prepare toppings: shred lettuce, dice tomatoes, and grate cheese.'),
-(3, 5, 'Fill each taco shell with beef, then top with lettuce, tomatoes, cheese, and sour cream. Serve immediately.');
+-- Insert lessons for Course 2, Module 3 (Dishes)
+INSERT INTO Lesson (ModuleID, LessonTitle, Description, LessonOrder, ContentType, DurationMinutes) VALUES
+(6, 'Pad Thai Mastery', 'Learn to cook the most iconic Thai street food', 1, 'video', 30),
+(6, 'Green Curry from Scratch', 'Make authentic green curry paste and curry dish', 2, 'video', 28),
+(6, 'Thai Cooking Quiz', 'Test your knowledge with this 10-question quiz', 3, 'assignment', 0);
 
--- Pad Thai
-INSERT INTO Recipe_Instruction (RecipeID, Step, Content) VALUES
-(4, 1, 'Soak rice noodles in warm water for 30 minutes until soft, then drain.'),
-(4, 2, 'Heat oil in a wok or large pan and cook shrimp until pink, then remove and set aside.'),
-(4, 3, 'Scramble eggs in the same pan and break into small pieces.'),
-(4, 4, 'Add noodles, fish sauce, and tamarind paste. Stir-fry for 2 minutes.'),
-(4, 5, 'Add shrimp back, along with bean sprouts. Toss everything together and cook for 1 more minute.'),
-(4, 6, 'Serve hot with lime wedges and crushed peanuts.');
+-- Insert content for video lessons (Course 1)
+INSERT INTO LessonContent (LessonID, ContentType, VideoUrl, VideoDuration) VALUES
+(1, 'video', 'https://youtube.com/watch?v=pasta-types', 900),
+(3, 'video', 'https://youtube.com/watch?v=pasta-shaping', 1200);
 
--- Caesar Salad
-INSERT INTO Recipe_Instruction (RecipeID, Step, Content) VALUES
-(5, 1, 'Wash and dry romaine lettuce, then chop into bite-sized pieces.'),
-(5, 2, 'Place lettuce in a large bowl and add Caesar dressing. Toss to coat evenly.'),
-(5, 3, 'Add croutons and grated Parmesan cheese. Toss again gently.'),
-(5, 4, 'Serve immediately as a side dish or add grilled chicken for a main course.');
+-- Insert content for article lessons (Course 1)
+INSERT INTO LessonContent (LessonID, ContentType, ArticleText) VALUES
+(2, 'article', '<h2>Making Fresh Pasta Dough</h2><p>Fresh pasta begins with the right ratio of flour to eggs...</p><p>The traditional ratio is 100g of flour per egg...</p>'),
+(4, 'video', 'https://youtube.com/watch?v=tomato-sauce', 1500),
+(5, 'article', '<h2>Cream Sauces</h2><p>Authentic Italian cream sauces require patience and technique...</p>');
 
--- Insert sample purchases (users who have bought recipes)
--- salsa_man bought: Carbonara, Tacos
--- linguini bought: Carbonara, Curry, Pad Thai
--- trungngothanh13 bought: Curry, Tacos
-INSERT INTO Purchase (UserID, RecipeID, Price) VALUES
-(2, 1, 9.99),
-(2, 3, 7.99),
-(3, 1, 9.99),
-(3, 2, 12.99),
-(3, 4, 11.99),
-(4, 2, 12.99),
-(4, 3, 7.99);
+-- Insert content for video lessons (Course 2)
+INSERT INTO LessonContent (LessonID, ContentType, VideoUrl, VideoDuration) VALUES
+(7, 'video', 'https://youtube.com/watch?v=thai-flavors', 1080),
+(9, 'video', 'https://youtube.com/watch?v=knife-techniques', 1320),
+(11, 'video', 'https://youtube.com/watch?v=pad-thai', 1800),
+(12, 'video', 'https://youtube.com/watch?v=green-curry', 1680);
 
--- Insert sample ratings (users who purchased recipes can rate)
--- salsa_man rated: Tacos (5 stars)
--- linguini rated: Curry (4 stars)
--- trungngothanh13 rated: Curry (1 stars)
-INSERT INTO Rating (RecipeID, UserID, RatingScore, Comment) VALUES
-(3, 2, 5, 'This is a great recipe!'),
-(2, 3, 4, 'My son likes it'),
-(2, 4, 3, 'Not fond of the taste');
+-- Insert content for article lessons (Course 2)
+INSERT INTO LessonContent (LessonID, ContentType, ArticleText) VALUES
+(8, 'article', '<h2>Essential Thai Ingredients</h2><p>Thai cuisines relies on a specific set of flavoring ingredients...</p><p>Key items include fish sauce, lime leaves, and Thai basil...</p>'),
+(10, 'article', '<h2>Ingredient Prep Guide</h2><p>Proper preparation of ingredients is crucial in Thai cooking...</p>');
 
--- Insert sample cart items
--- salsa_man: Pad Thai in cart
--- linguini: Caesar Salad in cart
--- trungngothanh13: Carbonara in cart
-INSERT INTO Cart (UserID, RecipeID) VALUES
-(2, 4),
-(3, 5),
-(4, 1);
+-- Insert assignment content
+INSERT INTO LessonContent (LessonID, ContentType, AssignmentQuestions, PassingScore) VALUES
+(6, 'assignment', '[{"question":"What is the main ingredient in carbonara sauce?","options":["Cream","Eggs and bacon","Garlic","Olive oil"],"correct":1},{"question":"How long should pasta be cooked for al dente?","options":["5-7 minutes","8-10 minutes","12-15 minutes","2-3 minutes"],"correct":1}]'::jsonb, 70),
+(13, 'assignment', '[{"question":"What are the 4 main flavors in Thai cuisine?","options":["Sweet, salty, sour, spicy","Hot, mild, fresh, dried","Light, heavy, tangy, smooth","Mild, medium, hot, extreme"],"correct":0},{"question":"What is the traditional name of the green curry paste?","options":["Kreng Green","Nam Prik Gaeng Keow","Sauce Vert","Thai Green Mix"],"correct":1},{"question":"Which ingredient is essential to Thai cooking?","options":["Soy sauce","Fish sauce","Worcestershire sauce","Hot sauce"],"correct":1}]'::jsonb, 75);
 
--- Insert sample transaction (pending payment verification)
--- salsa_man: Transaction 1 (Pad Thai)
--- linguini: Transaction 2 (Caesar Salad)
+-- Insert purchases (users have bought courses)
+-- student_john (UserID 2): Purchased Italian Pasta, considering Thai Street Food
+-- student_sarah (UserID 3): Purchased Thai Street Food, considering Italian Pasta
+INSERT INTO Purchase (UserID, CourseID, Price) VALUES
+(2, 1, 49.99),
+(3, 2, 59.99);
+
+-- Insert cart items
+-- student_john (UserID 2): Thai Street Food (considering)
+-- student_sarah (UserID 3): Italian Pasta (considering)
+INSERT INTO Cart (UserID, CourseID) VALUES
+(2, 2),
+(3, 1);
+
+-- Insert course reviews
+INSERT INTO CourseReview (CourseID, UserID, RatingScore, ReviewText) VALUES
+(1, 2, 5, 'Excellent course! The recipes are authentic. I made carbonara for dinner and it was perfect!'),
+(2, 3, 5, 'Amazing! The knife techniques section was especially helpful. I feel much more confident cooking Thai food now.');
+
+-- Insert student progress (student_john is taking Italian Pasta course)
+INSERT INTO StudentProgress (UserID, LessonID, IsCompleted, CompletedAt, Score) VALUES
+(2, 1, true, NOW() - INTERVAL '2 days', NULL),
+(2, 2, true, NOW() - INTERVAL '1 day', NULL),
+(2, 3, true, NOW(), NULL),
+(2, 4, false, NULL, NULL);
+
+-- Insert student progress (student_sarah is taking Thai Street Food course)
+INSERT INTO StudentProgress (UserID, LessonID, IsCompleted, CompletedAt, Score) VALUES
+(3, 7, true, NOW() - INTERVAL '5 days', NULL),
+(3, 8, true, NOW() - INTERVAL '4 days', NULL),
+(3, 9, true, NOW() - INTERVAL '3 days', NULL),
+(3, 10, true, NOW() - INTERVAL '2 days', NULL),
+(3, 11, true, NOW() - INTERVAL '1 day', NULL),
+(3, 12, true, NOW(), 85),
+(3, 13, false, NULL, NULL);
+
+-- Insert sample transactions (payment for course purchases)
 INSERT INTO Transaction (UserID, TotalAmount, PaymentMethod, PaymentProof, Status) VALUES
-(2, 11.99, 'bank_transfer', 'https://example.com/payment-proof-1.jpg', 'pending'),
-(3, 6.99, 'paypal', 'https://example.com/payment-proof-2.jpg', 'pending');
+(2, 49.99, 'credit_card', 'https://example.com/payment-proof-1.jpg', 'verified'),
+(3, 59.99, 'paypal', 'https://example.com/payment-proof-2.jpg', 'verified');
 
--- Link transactions with recipes
-INSERT INTO Transaction_Recipe (TransactionID, RecipeID, Price) VALUES
-(1, 4, 11.99), -- Transaction 1 (salsa_man): Pad Thai
-(2, 5, 6.99); -- Transaction 2 (linguini): Caesar Salad
-
--- Insert sample nutrition data (optional)
-INSERT INTO Nutrition (RecipeID, Type, Quantity, Measurement) VALUES
-(1, 'calories', 520, 'kcal'),
-(1, 'protein', 25, 'g'),
-(1, 'carbs', 65, 'g'),
-(1, 'fat', 18, 'g'),
-(2, 'calories', 380, 'kcal'),
-(2, 'protein', 35, 'g'),
-(2, 'carbs', 12, 'g'),
-(2, 'fat', 22, 'g'),
-(5, 'calories', 180, 'kcal'),
-(5, 'protein', 8, 'g'),
-(5, 'carbs', 15, 'g'),
-(5, 'fat', 12, 'g');
-
-
-
--- Select all TABLES
-SELECT * FROM "User";
-SELECT * FROM Recipe;
-SELECT * FROM Recipe_Ingredient;
-SELECT * FROM Recipe_Instruction;
-SELECT * FROM Rating;
-SELECT * FROM Nutrition;
-SELECT * FROM Purchase;
-SELECT * FROM Cart;
-SELECT * FROM Transaction;
-SELECT * FROM Transaction_Recipe;
+-- Display sample data
+SELECT 'Users' as Table_Name; SELECT * FROM "User";
+SELECT 'Courses' as Table_Name; SELECT * FROM Course;
+SELECT 'Modules' as Table_Name; SELECT * FROM Module;
+SELECT 'Lessons' as Table_Name; SELECT * FROM Lesson;
+SELECT 'Lesson Content' as Table_Name; SELECT LessonID, ContentType FROM LessonContent;
+SELECT 'Student Progress' as Table_Name; SELECT * FROM StudentProgress;
+SELECT 'Course Reviews' as Table_Name; SELECT * FROM CourseReview;
+SELECT 'Purchases' as Table_Name; SELECT * FROM Purchase;
+SELECT 'Cart' as Table_Name; SELECT * FROM Cart;
+SELECT 'Transactions' as Table_Name; SELECT * FROM Transaction;
