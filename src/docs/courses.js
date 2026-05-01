@@ -167,3 +167,117 @@
  *       404:
  *         description: Course not found
  */
+
+/**
+ * @swagger
+ * /api/courses/{id}/learn:
+ *   get:
+ *     tags:
+ *       - Courses
+ *     summary: Get course learning detail (Purchased users only)
+ *     description: Returns modules, lessons, content, and progress for a purchased course.
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: Course ID
+ *     responses:
+ *       200:
+ *         description: Learning content retrieved successfully
+ *       403:
+ *         description: User has not purchased this course
+ *       404:
+ *         description: Course not found
+ */
+
+/**
+ * @swagger
+ * /api/courses/{courseId}/lessons/{lessonId}/progress:
+ *   put:
+ *     tags:
+ *       - Courses
+ *     summary: Update lesson completion state (Non-assignment lessons)
+ *     description: Marks article/video lessons as completed or not completed and returns updated course learning detail.
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: courseId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *       - in: path
+ *         name: lessonId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               isCompleted:
+ *                 type: boolean
+ *             required:
+ *               - isCompleted
+ *     responses:
+ *       200:
+ *         description: Lesson progress updated successfully
+ *       400:
+ *         description: Invalid payload or assignment lesson update attempted
+ *       403:
+ *         description: User has not purchased this course
+ *       404:
+ *         description: Lesson not found
+ */
+
+/**
+ * @swagger
+ * /api/courses/{courseId}/lessons/{lessonId}/assignment/submit:
+ *   post:
+ *     tags:
+ *       - Courses
+ *     summary: Submit assignment answers
+ *     description: Evaluates assignment answers, stores score, determines pass by LessonContent passing score, and returns updated learning detail.
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: courseId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *       - in: path
+ *         name: lessonId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               answers:
+ *                 type: array
+ *                 items:
+ *                   type: integer
+ *             required:
+ *               - answers
+ *     responses:
+ *       200:
+ *         description: Assignment submitted successfully
+ *       400:
+ *         description: Invalid request or non-assignment lesson
+ *       403:
+ *         description: User has not purchased this course
+ *       404:
+ *         description: Lesson or assignment content not found
+ */

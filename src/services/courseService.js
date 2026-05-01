@@ -214,7 +214,249 @@ async function getCourseOverviewDetail(courseId) {
   };
 }
 
+async function assertCoursePurchase(userId, courseId) {
+  const purchaseResult = await pool.query(
+    `SELECT accessid
+    FROM CourseAccess
+    WHERE userid = $1 AND courseid = $2
+    LIMIT 1`,
+    [userId, courseId]
+  );
+
+  if (purchaseResult.rows.length === 0) {
+    throw new Error('Course access denied');
+  }
+}
+
+async function getCourseLearningDetail(courseId, userId) {
+  await assertCoursePurchase(userId, courseId);
+
+  const courseResult = await pool.query(
+    `SELECT
+      c.courseid as id,
+      c.coursetitle as title,
+      c.description,
+      c.thumbnail,
+      c.difficulty,
+      c.duration,
+      c.modulecount as "moduleCount"
+    FROM Course c
+    WHERE c.courseid = $1`,
+    [courseId]
+  );
+
+  if (courseResult.rows.length === 0) {
+    throw new Error('Course not found');
+  }
+
+  const lessonsResult = await pool.query(
+    `SELECT
+      m.moduleid as "moduleId",
+      m.moduletitle as "moduleTitle",
+      m.description as "moduleDescription",
+      m.moduleorder as "moduleOrder",
+      l.lessonid as id,
+      l.lessontitle as title,
+      l.description,
+      l.lessonorder as "lessonOrder",
+      l.contenttype as "contentType",
+      l.durationminutes as "durationMinutes",
+      lc.articletext as "articleText",
+      lc.videourl as "videoUrl",
+      lc.videoduration as "videoDuration",
+      lc.assignmentquestions as "assignmentQuestions",
+      lc.passingscore as "passingScore",
+      COALESCE(sp.iscompleted, false) as "isCompleted",
+      sp.score as score
+    FROM Module m
+    LEFT JOIN Lesson l ON l.moduleid = m.moduleid
+    LEFT JOIN LessonContent lc ON lc.lessonid = l.lessonid
+    LEFT JOIN StudentProgress sp ON sp.lessonid = l.lessonid AND sp.userid = $2
+    WHERE m.courseid = $1
+    ORDER BY m.moduleorder ASC, l.lessonorder ASC`,
+    [courseId, userId]
+  );
+
+  const modulesMap = new Map();
+  let completedLessons = 0;
+  let totalLessons = 0;
+  let totalProgressScore = 0;
+
+  for (const row of lessonsResult.rows) {
+    if (!modulesMap.has(row.moduleId)) {
+      modulesMap.set(row.moduleId, {
+        id: row.moduleId,
+        title: row.moduleTitle,
+        description: row.moduleDescription,
+        order: row.moduleOrder,
+        lessons: []
+      });
+    }
+
+    if (row.id) {
+      const contentType = (row.contentType || '').toLowerCase();
+      const assignmentPassingScore = row.passingScore || 70;
+      const assignmentScore = row.score === null || row.score === undefined
+        ? 0
+        : Number(row.score);
+      const isAssignmentPassed = contentType === 'assignment' && assignmentScore > assignmentPassingScore;
+      const lessonScore = contentType === 'assignment'
+        ? assignmentScore
+        : (row.isCompleted ? 100 : 0);
+      const isLessonCompleted = contentType === 'assignment'
+        ? isAssignmentPassed
+        : row.isCompleted;
+
+      totalLessons += 1;
+      totalProgressScore += lessonScore;
+      if (isLessonCompleted) completedLessons += 1;
+      modulesMap.get(row.moduleId).lessons.push({
+        id: row.id,
+        title: row.title,
+        description: row.description,
+        order: row.lessonOrder,
+        contentType: row.contentType,
+        durationMinutes: row.durationMinutes,
+        isCompleted: isLessonCompleted,
+        score: contentType === 'assignment' ? assignmentScore : null,
+        content: {
+          articleText: row.articleText,
+          videoUrl: row.videoUrl,
+          videoDuration: row.videoDuration,
+          assignmentQuestions: row.assignmentQuestions || [],
+          passingScore: row.passingScore || 70
+        }
+      });
+    }
+  }
+
+  const progressPercent = totalLessons === 0
+    ? 0
+    : Math.round(totalProgressScore / totalLessons);
+
+  return {
+    course: courseResult.rows[0],
+    modules: Array.from(modulesMap.values()),
+    progress: {
+      completedLessons,
+      totalLessons,
+      percent: progressPercent
+    }
+  };
+}
+
+async function findLessonForCourse(courseId, lessonId) {
+  const lessonResult = await pool.query(
+    `SELECT
+      l.lessonid as id,
+      l.contenttype as "contentType"
+    FROM Lesson l
+    JOIN Module m ON m.moduleid = l.moduleid
+    WHERE l.lessonid = $1 AND m.courseid = $2
+    LIMIT 1`,
+    [lessonId, courseId]
+  );
+
+  if (lessonResult.rows.length === 0) {
+    throw new Error('Lesson not found');
+  }
+
+  return lessonResult.rows[0];
+}
+
+async function markLessonProgress(userId, courseId, lessonId, isCompleted) {
+  await assertCoursePurchase(userId, courseId);
+
+  const lesson = await findLessonForCourse(courseId, lessonId);
+  if ((lesson.contentType || '').toLowerCase() === 'assignment') {
+    throw new Error('Assignment progress must be updated from assignment submission');
+  }
+
+  await pool.query(
+    `INSERT INTO StudentProgress (userid, lessonid, iscompleted, completedat, updatedat)
+    VALUES ($1, $2, $3, CASE WHEN $3 THEN NOW() ELSE NULL END, NOW())
+    ON CONFLICT (userid, lessonid)
+    DO UPDATE SET
+      iscompleted = EXCLUDED.iscompleted,
+      completedat = CASE WHEN EXCLUDED.iscompleted THEN NOW() ELSE NULL END,
+      updatedat = NOW()`,
+    [userId, lessonId, isCompleted]
+  );
+
+  return getCourseLearningDetail(courseId, userId);
+}
+
+async function submitAssignment(userId, courseId, lessonId, answers = []) {
+  await assertCoursePurchase(userId, courseId);
+
+  const lesson = await findLessonForCourse(courseId, lessonId);
+  if ((lesson.contentType || '').toLowerCase() !== 'assignment') {
+    throw new Error('Lesson is not an assignment');
+  }
+
+  const contentResult = await pool.query(
+    `SELECT assignmentquestions as "assignmentQuestions", passingscore as "passingScore"
+    FROM LessonContent
+    WHERE lessonid = $1
+    LIMIT 1`,
+    [lessonId]
+  );
+
+  if (contentResult.rows.length === 0) {
+    throw new Error('Assignment content not found');
+  }
+
+  const assignment = contentResult.rows[0];
+  const questions = Array.isArray(assignment.assignmentQuestions) ? assignment.assignmentQuestions : [];
+  const passingScore = assignment.passingScore || 70;
+
+  if (questions.length === 0) {
+    throw new Error('Assignment has no questions');
+  }
+
+  let correctAnswers = 0;
+  questions.forEach((question, idx) => {
+    if (Number(answers[idx]) === Number(question.correct)) {
+      correctAnswers += 1;
+    }
+  });
+
+  const score = Math.round((correctAnswers / questions.length) * 100);
+  const passed = score >= passingScore;
+
+  await pool.query(
+    `INSERT INTO StudentProgress (userid, lessonid, iscompleted, completedat, score, updatedat)
+    VALUES ($1, $2, $3, CASE WHEN $3 THEN NOW() ELSE NULL END, $4, NOW())
+    ON CONFLICT (userid, lessonid)
+    DO UPDATE SET
+      iscompleted = EXCLUDED.iscompleted,
+      completedat = CASE WHEN EXCLUDED.iscompleted THEN NOW() ELSE NULL END,
+      score = EXCLUDED.score,
+      updatedat = NOW()`,
+    [userId, lessonId, passed, score]
+  );
+
+  return {
+    score,
+    passed,
+    passingScore,
+    learning: await getCourseLearningDetail(courseId, userId)
+  };
+}
+
+async function getPurchasedCourseIds(userId) {
+  const result = await pool.query(
+    'SELECT courseid FROM CourseAccess WHERE userid = $1 ORDER BY courseid ASC',
+    [userId]
+  );
+  return result.rows.map((row) => Number(row.courseid));
+}
+
 module.exports = {
   getCoursesOverview,
-  getCourseOverviewDetail
+  getCourseOverviewDetail,
+  getCourseLearningDetail,
+  markLessonProgress,
+  submitAssignment,
+  getPurchasedCourseIds
 };

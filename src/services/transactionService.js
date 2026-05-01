@@ -1,24 +1,33 @@
 const pool = require('../config/database');
 
-/**
- * Create a transaction from user's cart
- * @param {number} userId - User ID
- * @returns {Promise<Object>} Created transaction with recipes
- * @throws {Error} If cart is empty or validation fails
- */
+function normalizeOrderItems(items) {
+  if (!Array.isArray(items)) return [];
+  return items
+    .map((item) => {
+      const courseId = Number(item.courseId ?? item.courseid ?? item.recipeId ?? 0);
+      const price = parseFloat(item.price ?? 0);
+      if (!courseId || Number.isNaN(price)) return null;
+      const thumbnail = item.thumbnail ?? item.videoThumbnail ?? null;
+      return {
+        courseId,
+        recipeId: courseId,
+        title: item.title ?? '',
+        thumbnail,
+        videoThumbnail: thumbnail,
+        price,
+      };
+    })
+    .filter(Boolean);
+}
+
 async function createTransaction(userId) {
   const client = await pool.connect();
-  
   try {
-    // Get cart items with current prices
     const cartResult = await client.query(
-      `SELECT 
-        c.recipeid,
-        r.recipetitle,
-        r.price
-      FROM Cart c
-      JOIN Recipe r ON c.recipeid = r.recipeid
-      WHERE c.userid = $1 AND r.isforsale = true`,
+      `SELECT c.courseid, co.coursetitle, co.price, co.thumbnail
+       FROM CartItem c
+       INNER JOIN Course co ON c.courseid = co.courseid
+       WHERE c.userid = $1`,
       [userId]
     );
 
@@ -26,58 +35,38 @@ async function createTransaction(userId) {
       throw new Error('Cart is empty');
     }
 
-    // Calculate total
-    const total = cartResult.rows.reduce((sum, item) => sum + parseFloat(item.price), 0);
+    const items = cartResult.rows.map((row) => ({
+      courseId: row.courseid,
+      title: row.coursetitle,
+      thumbnail: row.thumbnail,
+      price: parseFloat(row.price),
+    }));
+    const total = items.reduce((sum, item) => sum + item.price, 0);
 
-    // Start transaction
     await client.query('BEGIN');
-
-    // Create transaction
-    const transactionResult = await client.query(
-      `INSERT INTO Transaction (userid, totalamount, status)
-       VALUES ($1, $2, 'pending')
-       RETURNING transactionid, userid, totalamount, status, createdat`,
-      [userId, total]
+    const result = await client.query(
+      `INSERT INTO "Order" (userid, totalamount, items, status)
+       VALUES ($1, $2, $3::jsonb, 'pending')
+       RETURNING orderid as id, userid as "userId", totalamount as "totalAmount", status, createdat as "createdAt"`,
+      [userId, total, JSON.stringify(items)]
     );
-
-    const transaction = transactionResult.rows[0];
-    const transactionId = transaction.transactionid;
-
-    // Create Transaction_Recipe entries
-    const transactionRecipes = [];
-    for (const item of cartResult.rows) {
-      const trResult = await client.query(
-        `INSERT INTO Transaction_Recipe (transactionid, recipeid, price)
-         VALUES ($1, $2, $3)
-         RETURNING transactionid, recipeid, price`,
-        [transactionId, item.recipeid, item.price]
-      );
-      transactionRecipes.push({
-        recipeId: trResult.rows[0].recipeid,
-        recipeTitle: item.recipetitle,
-        price: parseFloat(trResult.rows[0].price)
-      });
-    }
-
-    // Clear cart
-    await client.query(
-      'DELETE FROM Cart WHERE userid = $1',
-      [userId]
-    );
-
-    // Commit transaction
+    await client.query('DELETE FROM CartItem WHERE userid = $1', [userId]);
     await client.query('COMMIT');
 
+    const order = result.rows[0];
+    const normalized = normalizeOrderItems(items);
     return {
-      id: transaction.transactionid,
-      userId: transaction.userid,
-      totalAmount: parseFloat(transaction.totalamount),
-      status: transaction.status,
-      createdAt: transaction.createdat,
-      recipes: transactionRecipes,
-      itemCount: transactionRecipes.length
+      id: order.id,
+      userId: order.userId,
+      totalAmount: parseFloat(order.totalAmount),
+      status: order.status,
+      createdAt: order.createdAt,
+      courses: normalized,
+      recipes: normalized,
+      itemCount: normalized.length,
+      courseCount: normalized.length,
+      recipeCount: normalized.length,
     };
-
   } catch (error) {
     await client.query('ROLLBACK');
     throw error;
@@ -86,348 +75,213 @@ async function createTransaction(userId) {
   }
 }
 
-/**
- * Submit payment proof for a transaction
- * @param {number} transactionId - Transaction ID
- * @param {number} userId - User ID (to verify ownership)
- * @param {string} paymentMethod - Payment method (e.g., 'bank_transfer', 'paypal', etc.)
- * @param {string} paymentProof - Payment proof URL or text
- * @returns {Promise<Object>} Updated transaction
- * @throws {Error} If transaction not found, not owned by user, or already verified
- */
 async function submitPayment(transactionId, userId, paymentMethod, paymentProof) {
   const client = await pool.connect();
-  
   try {
-    // Check if transaction exists and belongs to user
-    const transactionCheck = await client.query(
-      'SELECT transactionid, status FROM Transaction WHERE transactionid = $1 AND userid = $2',
+    const check = await client.query(
+      'SELECT orderid, status FROM "Order" WHERE orderid = $1 AND userid = $2',
       [transactionId, userId]
     );
-
-    if (transactionCheck.rows.length === 0) {
+    if (check.rows.length === 0) {
       throw new Error('Transaction not found or you do not have permission to update it');
     }
-
-    const transaction = transactionCheck.rows[0];
-
-    if (transaction.status !== 'pending') {
-      throw new Error(`Cannot submit payment for transaction with status: ${transaction.status}`);
+    if (check.rows[0].status !== 'pending') {
+      throw new Error(`Cannot submit payment for transaction with status: ${check.rows[0].status}`);
     }
-
-    // Validation
     if (!paymentMethod || paymentMethod.trim().length === 0) {
       throw new Error('Payment method is required');
     }
-
     if (!paymentProof || paymentProof.trim().length === 0) {
       throw new Error('Payment proof is required');
     }
 
-    // Update transaction
     const result = await client.query(
-      `UPDATE Transaction 
+      `UPDATE "Order"
        SET paymentmethod = $1, paymentproof = $2
-       WHERE transactionid = $3
-       RETURNING transactionid, userid, totalamount, paymentmethod, paymentproof, status, createdat`,
+       WHERE orderid = $3
+       RETURNING orderid as id, userid as "userId", totalamount as "totalAmount",
+                 paymentmethod as "paymentMethod", paymentproof as "paymentProof",
+                 status, createdat as "createdAt"`,
       [paymentMethod.trim(), paymentProof.trim(), transactionId]
     );
 
     return {
-      id: result.rows[0].transactionid,
-      userId: result.rows[0].userid,
-      totalAmount: parseFloat(result.rows[0].totalamount),
-      paymentMethod: result.rows[0].paymentmethod,
-      paymentProof: result.rows[0].paymentproof,
+      id: result.rows[0].id,
+      userId: result.rows[0].userId,
+      totalAmount: parseFloat(result.rows[0].totalAmount),
+      paymentMethod: result.rows[0].paymentMethod,
+      paymentProof: result.rows[0].paymentProof,
       status: result.rows[0].status,
-      createdAt: result.rows[0].createdat
+      createdAt: result.rows[0].createdAt,
     };
-
   } finally {
     client.release();
   }
 }
 
-/**
- * Get user's transactions
- * @param {number} userId - User ID
- * @param {string} status - Optional: filter by status (pending, verified, rejected)
- * @returns {Promise<Array>} List of transactions
- */
-async function getUserTransactions(userId, status = null) {
-  // First get all transactions
-  let query = `
-    SELECT 
-      t.transactionid as id,
-      t.userid as "userId",
-      t.totalamount as "totalAmount",
-      t.paymentmethod as "paymentMethod",
-      t.paymentproof as "paymentProof",
-      t.status,
-      t.adminnotes as "adminNotes",
-      t.createdat as "createdAt",
-      t.verifiedat as "verifiedAt",
-      t.verifiedby as "verifiedBy"
-    FROM Transaction t
-    WHERE t.userid = $1
-  `;
-  
-  const params = [userId];
-  
-  if (status) {
-    query += ' AND t.status = $2';
-    params.push(status);
-  }
-  
-  query += ` ORDER BY t.createdat DESC`;
-
-  const transactionsResult = await pool.query(query, params);
-
-  // For each transaction, get its recipes
-  const transactionsWithRecipes = await Promise.all(
-    transactionsResult.rows.map(async (transaction) => {
-      const recipesQuery = `
-        SELECT 
-          tr.recipeid as "recipeId",
-          r.recipetitle as title,
-          r.videothumbnail as "videoThumbnail",
-          tr.price
-        FROM Transaction_Recipe tr
-        JOIN Recipe r ON tr.recipeid = r.recipeid
-        WHERE tr.transactionid = $1
-        ORDER BY tr.recipeid
-      `;
-      
-      const recipesResult = await pool.query(recipesQuery, [transaction.id]);
-      
-      return {
-        id: transaction.id,
-        userId: transaction.userId,
-        totalAmount: parseFloat(transaction.totalAmount),
-        paymentMethod: transaction.paymentMethod,
-        paymentProof: transaction.paymentProof,
-        status: transaction.status,
-        adminNotes: transaction.adminNotes,
-        createdAt: transaction.createdAt,
-        verifiedAt: transaction.verifiedAt,
-        verifiedBy: transaction.verifiedBy,
-        recipeCount: recipesResult.rows.length,
-        recipes: recipesResult.rows.map(recipe => ({
-          recipeId: recipe.recipeId,
-          title: recipe.title,
-          videoThumbnail: recipe.videoThumbnail,
-          price: parseFloat(recipe.price)
-        }))
-      };
-    })
-  );
-
-  return transactionsWithRecipes;
-}
-
-/**
- * Get all transactions (admin only)
- * @param {Object} options - Filter options
- * @param {string} options.status - Filter by status
- * @param {number} options.userId - Filter by user ID
- * @param {number} options.page - Page number
- * @param {number} options.limit - Items per page
- * @returns {Promise<Object>} Transactions with pagination
- */
-async function getAllTransactions(options = {}) {
-  const {
-    status = null,
-    userId = null,
-    page = 1,
-    limit = 20
-  } = options;
-
-  let query = `
-    SELECT 
-      t.transactionid as id,
-      t.userid as "userId",
-      u.username,
-      t.totalamount as "totalAmount",
-      t.paymentmethod as "paymentMethod",
-      t.paymentproof as "paymentProof",
-      t.status,
-      t.createdat as "createdAt",
-      t.verifiedat as "verifiedAt",
-      COUNT(tr.recipeid) as "recipeCount"
-    FROM Transaction t
-    LEFT JOIN "User" u ON t.userid = u.userid
-    LEFT JOIN Transaction_Recipe tr ON t.transactionid = tr.transactionid
-    WHERE 1=1
-  `;
-
-  const params = [];
-  let paramIndex = 1;
-
-  if (status) {
-    query += ` AND t.status = $${paramIndex}`;
-    params.push(status);
-    paramIndex++;
-  }
-
-  if (userId) {
-    query += ` AND t.userid = $${paramIndex}`;
-    params.push(userId);
-    paramIndex++;
-  }
-
-  query += `
-    GROUP BY t.transactionid, t.userid, u.username, t.totalamount, 
-             t.paymentmethod, t.paymentproof, t.status, t.createdat, t.verifiedat
-    ORDER BY t.createdat DESC
-    LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
-  `;
-  params.push(limit, (page - 1) * limit);
-
-  // Count query
-  let countQuery = 'SELECT COUNT(DISTINCT transactionid) as total FROM Transaction WHERE 1=1';
-  const countParams = [];
-  let countParamIndex = 1;
-
-  if (status) {
-    countQuery += ` AND status = $${countParamIndex}`;
-    countParams.push(status);
-    countParamIndex++;
-  }
-
-  if (userId) {
-    countQuery += ` AND userid = $${countParamIndex}`;
-    countParams.push(userId);
-    countParamIndex++;
-  }
-
-  const [transactionsResult, countResult] = await Promise.all([
-    pool.query(query, params),
-    pool.query(countQuery, countParams)
-  ]);
-
-  const total = parseInt(countResult.rows[0].total);
-  const totalPages = Math.ceil(total / limit);
-
+function shapeOrderRow(row) {
+  const items = normalizeOrderItems(row.items);
   return {
-    transactions: transactionsResult.rows.map(t => ({
-      id: t.id,
-      userId: t.userId,
-      username: t.username,
-      totalAmount: parseFloat(t.totalAmount),
-      paymentMethod: t.paymentMethod,
-      paymentProof: t.paymentProof,
-      status: t.status,
-      createdAt: t.createdAt,
-      verifiedAt: t.verifiedAt,
-      recipeCount: parseInt(t.recipeCount)
-    })),
-    pagination: {
-      page: parseInt(page),
-      limit: parseInt(limit),
-      total,
-      totalPages
-    }
+    id: row.id,
+    userId: row.userId,
+    totalAmount: parseFloat(row.totalAmount),
+    paymentMethod: row.paymentMethod,
+    paymentProof: row.paymentProof,
+    status: row.status,
+    adminNotes: row.adminNotes,
+    createdAt: row.createdAt,
+    verifiedAt: row.verifiedAt,
+    verifiedBy: row.verifiedBy,
+    courseCount: items.length,
+    recipeCount: items.length,
+    courses: items,
+    recipes: items,
   };
 }
 
-/**
- * Verify a transaction (admin only)
- * Creates Purchase entries and updates Recipe.PurchaseCount
- * @param {number} transactionId - Transaction ID
- * @param {number} adminId - Admin user ID
- * @param {string} adminNotes - Optional admin notes
- * @returns {Promise<Object>} Verification result
- * @throws {Error} If transaction not found, already verified, or verification fails
- */
+async function getUserTransactions(userId, status = null) {
+  let query = `
+    SELECT orderid as id, userid as "userId", totalamount as "totalAmount", items,
+           paymentmethod as "paymentMethod", paymentproof as "paymentProof", status,
+           adminnotes as "adminNotes", createdat as "createdAt",
+           verifiedat as "verifiedAt", verifiedby as "verifiedBy"
+    FROM "Order"
+    WHERE userid = $1`;
+  const params = [userId];
+  if (status) {
+    query += ' AND status = $2';
+    params.push(status);
+  }
+  query += ' ORDER BY createdat DESC';
+
+  const result = await pool.query(query, params);
+  return result.rows.map(shapeOrderRow);
+}
+
+async function getAllTransactions(options = {}) {
+  const { status = null, userId = null, page = 1, limit = 20 } = options;
+  let query = `
+    SELECT o.orderid as id, o.userid as "userId", u.username,
+           o.totalamount as "totalAmount", o.items,
+           o.paymentmethod as "paymentMethod", o.paymentproof as "paymentProof",
+           o.status, o.createdat as "createdAt", o.verifiedat as "verifiedAt"
+    FROM "Order" o
+    LEFT JOIN "User" u ON o.userid = u.userid
+    WHERE 1=1`;
+  const params = [];
+  let idx = 1;
+  if (status) {
+    query += ` AND o.status = $${idx++}`;
+    params.push(status);
+  }
+  if (userId) {
+    query += ` AND o.userid = $${idx++}`;
+    params.push(userId);
+  }
+  query += ` ORDER BY o.createdat DESC LIMIT $${idx} OFFSET $${idx + 1}`;
+  params.push(limit, (page - 1) * limit);
+
+  let countQuery = 'SELECT COUNT(*)::int as total FROM "Order" WHERE 1=1';
+  const countParams = [];
+  let cidx = 1;
+  if (status) {
+    countQuery += ` AND status = $${cidx++}`;
+    countParams.push(status);
+  }
+  if (userId) {
+    countQuery += ` AND userid = $${cidx++}`;
+    countParams.push(userId);
+  }
+
+  const [rowsResult, countResult] = await Promise.all([
+    pool.query(query, params),
+    pool.query(countQuery, countParams),
+  ]);
+  const total = Number(countResult.rows[0].total);
+  const totalPages = Math.ceil(total / limit);
+
+  return {
+    transactions: rowsResult.rows.map((row) => {
+      const shaped = shapeOrderRow(row);
+      return {
+        id: shaped.id,
+        userId: shaped.userId,
+        username: row.username,
+        totalAmount: shaped.totalAmount,
+        paymentMethod: shaped.paymentMethod,
+        paymentProof: shaped.paymentProof,
+        status: shaped.status,
+        createdAt: shaped.createdAt,
+        verifiedAt: shaped.verifiedAt,
+        courseCount: shaped.courseCount,
+        recipeCount: shaped.recipeCount,
+      };
+    }),
+    pagination: {
+      page: parseInt(page, 10),
+      limit: parseInt(limit, 10),
+      total,
+      totalPages,
+    },
+  };
+}
+
 async function verifyTransaction(transactionId, adminId, adminNotes = null) {
   const client = await pool.connect();
-  
   try {
-    // Check if transaction exists and is pending
-    const transactionCheck = await client.query(
-      'SELECT transactionid, userid, status FROM Transaction WHERE transactionid = $1',
+    const check = await client.query(
+      'SELECT orderid, userid, status, items FROM "Order" WHERE orderid = $1',
       [transactionId]
     );
+    if (check.rows.length === 0) throw new Error('Transaction not found');
 
-    if (transactionCheck.rows.length === 0) {
-      throw new Error('Transaction not found');
-    }
+    const order = check.rows[0];
+    if (order.status === 'verified') throw new Error('Transaction is already verified');
+    if (order.status === 'rejected') throw new Error('Cannot verify a rejected transaction');
 
-    const transaction = transactionCheck.rows[0];
+    const items = normalizeOrderItems(order.items);
+    if (items.length === 0) throw new Error('Transaction has no courses');
 
-    if (transaction.status === 'verified') {
-      throw new Error('Transaction is already verified');
-    }
-
-    if (transaction.status === 'rejected') {
-      throw new Error('Cannot verify a rejected transaction');
-    }
-
-    // Get recipes in transaction
-    const recipesResult = await client.query(
-      'SELECT recipeid, price FROM Transaction_Recipe WHERE transactionid = $1',
-      [transactionId]
-    );
-
-    if (recipesResult.rows.length === 0) {
-      throw new Error('Transaction has no recipes');
-    }
-
-    // Start transaction
     await client.query('BEGIN');
-
-    // Update transaction status
     await client.query(
-      `UPDATE Transaction 
-       SET status = 'verified', 
-           verifiedat = CURRENT_TIMESTAMP,
-           verifiedby = $1,
+      `UPDATE "Order"
+       SET status = 'verified', verifiedat = CURRENT_TIMESTAMP, verifiedby = $1,
            adminnotes = COALESCE($2, adminnotes)
-       WHERE transactionid = $3`,
+       WHERE orderid = $3`,
       [adminId, adminNotes, transactionId]
     );
 
-    // Create Purchase entries and update Recipe.PurchaseCount
-    const purchaseIds = [];
-    for (const recipe of recipesResult.rows) {
-      // Check if purchase already exists (shouldn't happen, but safety check)
-      const existingPurchase = await client.query(
-        'SELECT purchaseid FROM Purchase WHERE userid = $1 AND recipeid = $2',
-        [transaction.userid, recipe.recipeid]
+    const accessIds = [];
+    for (const item of items) {
+      const existing = await client.query(
+        'SELECT accessid FROM CourseAccess WHERE userid = $1 AND courseid = $2',
+        [order.userid, item.courseId]
       );
+      if (existing.rows.length > 0) continue;
 
-      if (existingPurchase.rows.length === 0) {
-        // Create purchase entry
-        const purchaseResult = await client.query(
-          `INSERT INTO Purchase (userid, recipeid, price)
-           VALUES ($1, $2, $3)
-           ON CONFLICT (userid, recipeid) DO NOTHING
-           RETURNING purchaseid`,
-          [transaction.userid, recipe.recipeid, recipe.price]
+      const created = await client.query(
+        `INSERT INTO CourseAccess (userid, courseid, price)
+         VALUES ($1, $2, $3)
+         ON CONFLICT (userid, courseid) DO NOTHING
+         RETURNING accessid`,
+        [order.userid, item.courseId, item.price]
+      );
+      if (created.rows.length > 0) {
+        accessIds.push(created.rows[0].accessid);
+        await client.query(
+          'UPDATE Course SET purchasecount = COALESCE(purchasecount, 0) + 1 WHERE courseid = $1',
+          [item.courseId]
         );
-
-        if (purchaseResult.rows.length > 0) {
-          purchaseIds.push(purchaseResult.rows[0].purchaseid);
-          
-          // Update Recipe.PurchaseCount
-          await client.query(
-            'UPDATE Recipe SET purchasecount = purchasecount + 1 WHERE recipeid = $1',
-            [recipe.recipeid]
-          );
-        }
       }
     }
 
-    // Commit transaction
     await client.query('COMMIT');
-
     return {
       transactionId,
       status: 'verified',
-      purchaseCount: purchaseIds.length,
-      purchaseIds
+      purchaseCount: accessIds.length,
+      purchaseIds: accessIds,
     };
-
   } catch (error) {
     await client.query('ROLLBACK');
     throw error;
@@ -436,139 +290,52 @@ async function verifyTransaction(transactionId, adminId, adminNotes = null) {
   }
 }
 
-/**
- * Reject a transaction (admin only)
- * @param {number} transactionId - Transaction ID
- * @param {number} adminId - Admin user ID
- * @param {string} adminNotes - Admin notes explaining rejection
- * @returns {Promise<Object>} Rejection result
- * @throws {Error} If transaction not found or already processed
- */
 async function rejectTransaction(transactionId, adminId, adminNotes) {
   const client = await pool.connect();
-  
   try {
-    // Check if transaction exists and is pending
-    const transactionCheck = await client.query(
-      'SELECT transactionid, status FROM Transaction WHERE transactionid = $1',
+    const check = await client.query(
+      'SELECT orderid, status FROM "Order" WHERE orderid = $1',
       [transactionId]
     );
-
-    if (transactionCheck.rows.length === 0) {
-      throw new Error('Transaction not found');
-    }
-
-    const transaction = transactionCheck.rows[0];
-
-    if (transaction.status === 'verified') {
-      throw new Error('Cannot reject a verified transaction');
-    }
-
-    if (transaction.status === 'rejected') {
-      throw new Error('Transaction is already rejected');
-    }
-
+    if (check.rows.length === 0) throw new Error('Transaction not found');
+    if (check.rows[0].status === 'verified') throw new Error('Cannot reject a verified transaction');
+    if (check.rows[0].status === 'rejected') throw new Error('Transaction is already rejected');
     if (!adminNotes || adminNotes.trim().length === 0) {
       throw new Error('Admin notes are required when rejecting a transaction');
     }
 
-    // Update transaction status
     const result = await client.query(
-      `UPDATE Transaction 
-       SET status = 'rejected',
-           verifiedby = $1,
-           adminnotes = $2
-       WHERE transactionid = $3
-       RETURNING transactionid, status, adminnotes`,
+      `UPDATE "Order"
+       SET status = 'rejected', verifiedby = $1, adminnotes = $2
+       WHERE orderid = $3
+       RETURNING orderid as "transactionId", status, adminnotes as "adminNotes"`,
       [adminId, adminNotes.trim(), transactionId]
     );
-
-    return {
-      transactionId: result.rows[0].transactionid,
-      status: result.rows[0].status,
-      adminNotes: result.rows[0].adminnotes
-    };
-
+    return result.rows[0];
   } finally {
     client.release();
   }
 }
 
-/**
- * Get transaction by ID
- * @param {number} transactionId - Transaction ID
- * @param {number} userId - User ID (for access control)
- * @param {string} userRole - User role (for admin access)
- * @returns {Promise<Object>} Transaction with full details including recipes
- * @throws {Error} If transaction not found or access denied
- */
 async function getTransactionById(transactionId, userId, userRole) {
   const client = await pool.connect();
-  
   try {
-    // Get transaction
-    const transactionResult = await client.query(
-      `SELECT 
-        t.transactionid as id,
-        t.userid as "userId",
-        t.totalamount as "totalAmount",
-        t.paymentmethod as "paymentMethod",
-        t.paymentproof as "paymentProof",
-        t.status,
-        t.adminnotes as "adminNotes",
-        t.createdat as "createdAt",
-        t.verifiedat as "verifiedAt",
-        t.verifiedby as "verifiedBy"
-      FROM Transaction t
-      WHERE t.transactionid = $1`,
+    const result = await client.query(
+      `SELECT orderid as id, userid as "userId", totalamount as "totalAmount", items,
+              paymentmethod as "paymentMethod", paymentproof as "paymentProof",
+              status, adminnotes as "adminNotes", createdat as "createdAt",
+              verifiedat as "verifiedAt", verifiedby as "verifiedBy"
+       FROM "Order"
+       WHERE orderid = $1`,
       [transactionId]
     );
+    if (result.rows.length === 0) throw new Error('Transaction not found');
 
-    if (transactionResult.rows.length === 0) {
-      throw new Error('Transaction not found');
-    }
-
-    const transaction = transactionResult.rows[0];
-
-    // Check access: user can only see their own transactions, admin can see all
-    if (userRole !== 'admin' && transaction.userId !== userId) {
+    const row = result.rows[0];
+    if (userRole !== 'admin' && row.userId !== userId) {
       throw new Error('Access denied. You do not have permission to view this transaction.');
     }
-
-    // Get recipes in transaction
-    const recipesResult = await client.query(
-      `SELECT 
-        tr.recipeid as "recipeId",
-        r.recipetitle as title,
-        r.videothumbnail as "videoThumbnail",
-        tr.price
-      FROM Transaction_Recipe tr
-      JOIN Recipe r ON tr.recipeid = r.recipeid
-      WHERE tr.transactionid = $1
-      ORDER BY tr.recipeid`,
-      [transactionId]
-    );
-
-    return {
-      id: transaction.id,
-      userId: transaction.userId,
-      totalAmount: parseFloat(transaction.totalAmount),
-      paymentMethod: transaction.paymentMethod,
-      paymentProof: transaction.paymentProof,
-      status: transaction.status,
-      adminNotes: transaction.adminNotes,
-      createdAt: transaction.createdAt,
-      verifiedAt: transaction.verifiedAt,
-      verifiedBy: transaction.verifiedBy,
-      recipeCount: recipesResult.rows.length,
-      recipes: recipesResult.rows.map(recipe => ({
-        recipeId: recipe.recipeId,
-        title: recipe.title,
-        videoThumbnail: recipe.videoThumbnail,
-        price: parseFloat(recipe.price)
-      }))
-    };
-
+    return shapeOrderRow(row);
   } finally {
     client.release();
   }
@@ -581,6 +348,5 @@ module.exports = {
   getAllTransactions,
   getTransactionById,
   verifyTransaction,
-  rejectTransaction
+  rejectTransaction,
 };
-

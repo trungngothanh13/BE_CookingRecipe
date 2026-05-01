@@ -3,9 +3,9 @@ DROP TABLE IF EXISTS StudentProgress CASCADE;
 DROP TABLE IF EXISTS LessonContent CASCADE;
 DROP TABLE IF EXISTS Lesson CASCADE;
 DROP TABLE IF EXISTS Module CASCADE;
-DROP TABLE IF EXISTS Transaction CASCADE;
-DROP TABLE IF EXISTS Purchase CASCADE;
-DROP TABLE IF EXISTS Cart CASCADE;
+DROP TABLE IF EXISTS "Order" CASCADE;
+DROP TABLE IF EXISTS CourseAccess CASCADE;
+DROP TABLE IF EXISTS CartItem CASCADE;
 DROP TABLE IF EXISTS CourseReview CASCADE;
 DROP TABLE IF EXISTS Course CASCADE;
 DROP TABLE IF EXISTS "User" CASCADE;
@@ -86,14 +86,14 @@ CREATE TABLE LessonContent (
     UNIQUE(LessonID) -- One content per lesson
 );
 
--- Create StudentProgress table (tracks completion per student per lesson)
+-- Tracks completion and assignment score per user per lesson.
 CREATE TABLE StudentProgress (
     ProgressID SERIAL PRIMARY KEY,
     UserID INTEGER REFERENCES "User"(UserID) ON DELETE CASCADE,
     LessonID INTEGER REFERENCES Lesson(LessonID) ON DELETE CASCADE,
     IsCompleted BOOLEAN DEFAULT FALSE,
     CompletedAt TIMESTAMP,
-    Score INTEGER, -- For assignments (0-100)
+    Score INTEGER, -- Optional assignment score (any integer)
     CreatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     UpdatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     UNIQUE(UserID, LessonID) -- One progress record per user per lesson
@@ -111,18 +111,18 @@ CREATE TABLE CourseReview (
     UNIQUE(CourseID, UserID) -- One review per user per course
 );
 
--- Create Purchase table (tracks course purchases)
-CREATE TABLE Purchase (
-    PurchaseID SERIAL PRIMARY KEY,
+-- Final ownership grants after payment approval
+CREATE TABLE CourseAccess (
+    AccessID SERIAL PRIMARY KEY,
     UserID INTEGER REFERENCES "User"(UserID) ON DELETE CASCADE,
     CourseID INTEGER REFERENCES Course(CourseID) ON DELETE CASCADE,
     Price DECIMAL(10, 2) NOT NULL,
-    PurchasedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    GrantedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     UNIQUE(UserID, CourseID) -- Prevent duplicate purchases
 );
 
--- Create Cart table (shopping cart for courses)
-CREATE TABLE Cart (
+-- Pending course selections before checkout
+CREATE TABLE CartItem (
     CartID SERIAL PRIMARY KEY,
     UserID INTEGER REFERENCES "User"(UserID) ON DELETE CASCADE,
     CourseID INTEGER REFERENCES Course(CourseID) ON DELETE CASCADE,
@@ -130,15 +130,18 @@ CREATE TABLE Cart (
     UNIQUE(UserID, CourseID) -- One entry per course per user
 );
 
--- Create Transaction table (payment verification)
-CREATE TABLE Transaction (
-    TransactionID SERIAL PRIMARY KEY,
+-- Checkout/payment records (table name quoted because ORDER is SQL keyword)
+CREATE TABLE "Order" (
+    OrderID SERIAL PRIMARY KEY,
     UserID INTEGER REFERENCES "User"(UserID) ON DELETE CASCADE,
     TotalAmount DECIMAL(10, 2) NOT NULL,
+    Items JSONB NOT NULL DEFAULT '[]'::jsonb, -- [{ courseId, title, thumbnail, price }]
     PaymentMethod VARCHAR(50),
     PaymentProof TEXT, -- URL or text for payment proof
     Status VARCHAR(20) DEFAULT 'pending' CHECK (Status IN ('pending', 'verified', 'rejected')),
     AdminNotes TEXT,
+    VerifiedAt TIMESTAMP,
+    VerifiedBy INTEGER REFERENCES "User"(UserID),
     CreatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     UpdatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );

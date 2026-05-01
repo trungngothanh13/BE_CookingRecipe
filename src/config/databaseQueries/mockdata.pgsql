@@ -1,9 +1,11 @@
 -- Insert sample users
--- Passwords: "adminpassword", "student1password", "student2password"
-INSERT INTO "User" (Username, Password, Role) VALUES
-('admin', '$2b$10$DbrVlKXmFJf6IXo/jF3l5ONDBF1GWzZ4NC6s79rJNdOEnwdQfE1.S', 'admin'),
-('student_john', '$2b$10$FsnyjyobjqtQ7jBedVP1F.VXqb3J1iBauU2wl.9zjfCoJ.Wxl8qWi', 'user'),
-('student_sarah', '$2b$10$kSRL9HRPlKCvv6HWJgvMSe40a8LpkxDAG7AbA8686jjwPZYebIlZy', 'user');
+-- admin -> adminpassword
+-- trungngothanh13 -> Supernegative1
+-- student_sarah -> student2password
+INSERT INTO "User" (Username, Email, Password, Role) VALUES
+('admin', NULL, '$2b$10$DbrVlKXmFJf6IXo/jF3l5ONDBF1GWzZ4NC6s79rJNdOEnwdQfE1.S', 'admin'),
+('trungngothanh13', 'trungngothanh13@gmail.com', '$2b$10$isxP.bYHQEoGJxGsPwGM.u7OfY8uAjPzRDXcPOtCXJoHXLRyWyE96', 'user'),
+('student_sarah', NULL, '$2b$10$kSRL9HRPlKCvv6HWJgvMSe40a8LpkxDAG7AbA8686jjwPZYebIlZy', 'user');
 
 -- Insert sample courses (admin-managed, hardcoded in system)
 -- Course 1: Italian Pasta Fundamentals
@@ -86,16 +88,16 @@ INSERT INTO LessonContent (LessonID, ContentType, AssignmentQuestions, PassingSc
 (13, 'Assignment', '[{"question":"What are the 4 main flavors in Thai cuisine?","options":["Sweet, salty, sour, spicy","Hot, mild, fresh, dried","Light, heavy, tangy, smooth","Mild, medium, hot, extreme"],"correct":0},{"question":"What is the traditional name of the green curry paste?","options":["Kreng Green","Nam Prik Gaeng Keow","Sauce Vert","Thai Green Mix"],"correct":1},{"question":"Which ingredient is essential to Thai cooking?","options":["Soy sauce","Fish sauce","Worcestershire sauce","Hot sauce"],"correct":1}]'::jsonb, 75);
 
 -- Insert purchases (users have bought courses)
--- student_john (UserID 2): Purchased Italian Pasta, considering Thai Street Food
+-- trungngothanh13 (UserID 2): Purchased Italian Pasta, considering Thai Street Food
 -- student_sarah (UserID 3): Purchased Thai Street Food, considering Italian Pasta
-INSERT INTO Purchase (UserID, CourseID, Price) VALUES
+INSERT INTO CourseAccess (UserID, CourseID, Price) VALUES
 (2, 1, 49.99),
 (3, 2, 59.99);
 
 -- Insert cart items
--- student_john (UserID 2): Thai Street Food (considering)
+-- trungngothanh13 (UserID 2): Thai Street Food (considering)
 -- student_sarah (UserID 3): Italian Pasta (considering)
-INSERT INTO Cart (UserID, CourseID) VALUES
+INSERT INTO CartItem (UserID, CourseID) VALUES
 (2, 2),
 (3, 1);
 
@@ -104,27 +106,34 @@ INSERT INTO CourseReview (CourseID, UserID, RatingScore, ReviewText) VALUES
 (1, 2, 5, 'Excellent course! The recipes are authentic. I made carbonara for dinner and it was perfect!'),
 (2, 3, 5, 'Amazing! The knife techniques section was especially helpful. I feel much more confident cooking Thai food now.');
 
--- Insert student progress (student_john is taking Italian Pasta course)
+-- ============================================
+-- StudentProgress mock data (lesson-level tracking)
+-- ============================================
+-- Passing rule for assignment lessons: score > LessonContent.PassingScore means pass.
+-- trungngothanh13 is taking Italian Pasta course
 INSERT INTO StudentProgress (UserID, LessonID, IsCompleted, CompletedAt, Score) VALUES
 (2, 1, true, NOW() - INTERVAL '2 days', NULL),
 (2, 2, true, NOW() - INTERVAL '1 day', NULL),
 (2, 3, true, NOW(), NULL),
-(2, 4, false, NULL, NULL);
+(2, 4, false, NULL, NULL),
+-- Lesson 6 is an assignment with passing score 70 => 86 > 70 (pass)
+(2, 6, true, NOW(), 86);
 
--- Insert student progress (student_sarah is taking Thai Street Food course)
+-- student_sarah is taking Thai Street Food course
 INSERT INTO StudentProgress (UserID, LessonID, IsCompleted, CompletedAt, Score) VALUES
 (3, 7, true, NOW() - INTERVAL '5 days', NULL),
 (3, 8, true, NOW() - INTERVAL '4 days', NULL),
 (3, 9, true, NOW() - INTERVAL '3 days', NULL),
 (3, 10, true, NOW() - INTERVAL '2 days', NULL),
 (3, 11, true, NOW() - INTERVAL '1 day', NULL),
-(3, 12, true, NOW(), 85),
-(3, 13, false, NULL, NULL);
+(3, 12, true, NOW(), NULL),
+-- Lesson 13 is an assignment with passing score 75 => 72 is not greater than 75 (fail)
+(3, 13, false, NULL, 72);
 
--- Insert sample transactions (payment for course purchases)
-INSERT INTO Transaction (UserID, TotalAmount, PaymentMethod, PaymentProof, Status) VALUES
-(2, 49.99, 'credit_card', 'https://example.com/payment-proof-1.jpg', 'verified'),
-(3, 59.99, 'paypal', 'https://example.com/payment-proof-2.jpg', 'verified');
+-- Insert sample orders (payment for course purchases)
+INSERT INTO "Order" (UserID, TotalAmount, Items, PaymentMethod, PaymentProof, Status) VALUES
+(2, 49.99, '[{"courseId":1,"title":"Italian Pasta Fundamentals","thumbnail":"https://example.com/pasta-thumb.jpg","price":49.99}]'::jsonb, 'credit_card', 'https://example.com/payment-proof-1.jpg', 'verified'),
+(3, 59.99, '[{"courseId":2,"title":"Thai Street Food Mastery","thumbnail":"https://example.com/thai-thumb.jpg","price":59.99}]'::jsonb, 'paypal', 'https://example.com/payment-proof-2.jpg', 'verified');
 
 -- Display sample data
 SELECT * FROM "User";
@@ -134,6 +143,6 @@ SELECT * FROM Lesson;
 SELECT * FROM LessonContent;
 SELECT * FROM StudentProgress;
 SELECT * FROM CourseReview;
-SELECT * FROM Purchase;
-SELECT * FROM Cart;
-SELECT * FROM Transaction;
+SELECT * FROM CourseAccess;
+SELECT * FROM CartItem;
+SELECT * FROM "Order";
