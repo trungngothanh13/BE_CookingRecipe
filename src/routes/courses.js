@@ -292,6 +292,41 @@ router.get('/:id/learn', authenticateToken, async (req, res) => {
   }
 });
 
+router.get('/:id/certificate', authenticateToken, async (req, res) => {
+  try {
+    const courseId = parseInt(req.params.id, 10);
+    if (Number.isNaN(courseId)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid course ID'
+      });
+    }
+
+    const certificate = await courseService.generateCourseCertificate(courseId, req.user.userId);
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${certificate.fileName}"`);
+    return res.send(Buffer.from(certificate.bytes));
+  } catch (error) {
+    console.error('Generate certificate error:', error);
+
+    if (error.message === 'Course not found') {
+      return res.status(404).json({ success: false, message: error.message });
+    }
+    if (error.message === 'Course access denied') {
+      return res.status(403).json({ success: false, message: 'You have not purchased this course' });
+    }
+    if (error.message.includes('Certificate is available')) {
+      return res.status(400).json({ success: false, message: error.message });
+    }
+
+    res.status(500).json({
+      success: false,
+      message: 'Failed to generate certificate',
+      error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+    });
+  }
+});
+
 router.put('/:courseId/lessons/:lessonId/progress', authenticateToken, async (req, res) => {
   try {
     const courseId = parseInt(req.params.courseId, 10);

@@ -1,4 +1,5 @@
 const pool = require('../config/database');
+const { PDFDocument, StandardFonts, rgb } = require('pdf-lib');
 
 /**
  * Get courses overview (public access)
@@ -311,7 +312,7 @@ async function getCourseLearningDetail(courseId, userId) {
         : Number(row.score);
       const isAssignmentPassed = contentType === 'assignment' && assignmentScore > assignmentPassingScore;
       const lessonScore = contentType === 'assignment'
-        ? assignmentScore
+        ? (isAssignmentPassed ? assignmentScore : 0)
         : (row.isCompleted ? 100 : 0);
       const isLessonCompleted = contentType === 'assignment'
         ? isAssignmentPassed
@@ -432,7 +433,7 @@ async function submitAssignment(userId, courseId, lessonId, answers = []) {
   });
 
   const score = Math.round((correctAnswers / questions.length) * 100);
-  const passed = score >= passingScore;
+  const passed = score > passingScore;
 
   await pool.query(
     `INSERT INTO StudentProgress (userid, lessonid, iscompleted, completedat, score, updatedat)
@@ -460,6 +461,188 @@ async function getPurchasedCourseIds(userId) {
     [userId]
   );
   return result.rows.map((row) => Number(row.courseid));
+}
+
+function getSignatureName(displayName, username) {
+  const source = String(displayName || username || '').trim();
+  if (!source) return 'Student';
+  const first = source.split(/\s+/)[0];
+  return first || 'Student';
+}
+
+function formatIssuedDate(date = new Date()) {
+  return date.toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric'
+  });
+}
+
+async function generateCourseCertificate(courseId, userId) {
+  const learning = await getCourseLearningDetail(courseId, userId);
+  if (Number(learning?.progress?.percent || 0) <= 95) {
+    throw new Error('Certificate is available after completing more than 95% progress');
+  }
+
+  const userResult = await pool.query(
+    `SELECT userid, username, name
+     FROM "User"
+     WHERE userid = $1
+     LIMIT 1`,
+    [userId]
+  );
+  if (userResult.rows.length === 0) {
+    throw new Error('User not found');
+  }
+
+  const user = userResult.rows[0];
+  const fullName = String(user.name || user.username || 'Student').trim();
+  const signature = getSignatureName(user.name, user.username);
+  const courseTitle = learning.course?.title || 'Course';
+  const issuedDate = formatIssuedDate(new Date());
+
+  const pdfDoc = await PDFDocument.create();
+  const page = pdfDoc.addPage([842, 595]); // A4 landscape
+  const { width, height } = page.getSize();
+  const fontRegular = await pdfDoc.embedFont(StandardFonts.Helvetica);
+  const fontBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+  const fontItalic = await pdfDoc.embedFont(StandardFonts.HelveticaOblique);
+  const fontSignature = await pdfDoc.embedFont(StandardFonts.TimesRomanItalic);
+  const accent = rgb(0.95, 0.35, 0.12);
+  const muted = rgb(0.35, 0.35, 0.35);
+  const dark = rgb(0.12, 0.12, 0.12);
+  const centerX = (text, font, size) => (width - font.widthOfTextAtSize(text, size)) / 2;
+
+  page.drawRectangle({
+    x: 20,
+    y: 20,
+    width: width - 40,
+    height: height - 40,
+    borderWidth: 1.5,
+    borderColor: accent
+  });
+
+  page.drawRectangle({
+    x: 42,
+    y: 42,
+    width: width - 84,
+    height: height - 84,
+    borderWidth: 0.8,
+    borderColor: rgb(0.88, 0.88, 0.88)
+  });
+
+  page.drawText('Certificate', {
+    x: centerX('Certificate', fontBold, 40),
+    y: 505,
+    size: 40,
+    font: fontBold,
+    color: dark
+  });
+
+  page.drawText('of Completion', {
+    x: centerX('of Completion', fontRegular, 24),
+    y: 472,
+    size: 24,
+    font: fontRegular,
+    color: muted
+  });
+
+  page.drawLine({
+    start: { x: width / 2 - 100, y: 458 },
+    end: { x: width / 2 + 100, y: 458 },
+    thickness: 1.2,
+    color: accent
+  });
+
+  page.drawText('This certifies that', {
+    x: centerX('This certifies that', fontRegular, 15),
+    y: 425,
+    size: 15,
+    font: fontRegular,
+    color: muted
+  });
+
+  page.drawText(fullName, {
+    x: centerX(fullName, fontBold, 43),
+    y: 370,
+    size: 43,
+    font: fontBold,
+    color: dark
+  });
+
+  page.drawLine({
+    start: { x: 210, y: 358 },
+    end: { x: width - 210, y: 358 },
+    thickness: 0.8,
+    color: rgb(0.75, 0.75, 0.75)
+  });
+
+  page.drawText('has successfully completed the course', {
+    x: centerX('has successfully completed the course', fontRegular, 15),
+    y: 334,
+    size: 15,
+    font: fontRegular,
+    color: muted
+  });
+
+  const titleSize = courseTitle.length > 42 ? 24 : 28;
+  page.drawText(courseTitle, {
+    x: centerX(courseTitle, fontItalic, titleSize),
+    y: 292,
+    size: titleSize,
+    font: fontItalic,
+    color: accent
+  });
+
+  const progressText = `with an overall course progress of ${learning.progress.percent}%`;
+  page.drawText(progressText, {
+    x: centerX(progressText, fontRegular, 13),
+    y: 262,
+    size: 13,
+    font: fontRegular,
+    color: muted
+  });
+
+  page.drawText('Issued on', {
+    x: 112,
+    y: 148,
+    size: 11,
+    font: fontRegular,
+    color: muted
+  });
+
+  page.drawText(issuedDate, {
+    x: 112,
+    y: 102,
+    size: 17,
+    font: fontBold,
+    color: dark
+  });
+
+  page.drawText('Signature', {
+    x: 620,
+    y: 148,
+    size: 11,
+    font: fontRegular,
+    color: muted
+  });
+
+  page.drawText(signature, {
+    x: 620,
+    y: 96,
+    size: 38,
+    font: fontSignature,
+    color: dark
+  });
+
+  const bytes = await pdfDoc.save();
+  const safeTitle = String(courseTitle).replace(/[^a-zA-Z0-9-_]+/g, '_');
+  const safeName = String(fullName).replace(/[^a-zA-Z0-9-_]+/g, '_');
+
+  return {
+    fileName: `certificate_${safeTitle}_${safeName}.pdf`,
+    bytes
+  };
 }
 
 function normalizeDifficulty(value) {
@@ -846,5 +1029,6 @@ module.exports = {
   deleteCourse,
   getCourseReviews,
   upsertCourseReview,
-  deleteCourseReview
+  deleteCourseReview,
+  generateCourseCertificate
 };

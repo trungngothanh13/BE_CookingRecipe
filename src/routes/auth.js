@@ -7,9 +7,9 @@ const { authenticateToken } = require('../middlewares/authMiddleware');
 
 router.post('/register', async (req, res) => {
   try {
-    const { username, password, profilePicture } = req.body;
+    const { username, password, profilePicture, name, email } = req.body;
 
-    const { user, token } = await authService.registerUser(username, password, profilePicture);
+    const { user, token } = await authService.registerUser(username, password, profilePicture, name, email);
 
     res.status(201).json({
       success: true,
@@ -94,6 +94,43 @@ router.get('/profile', authenticateToken, async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Failed to get profile',
+      error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+    });
+  }
+});
+
+router.put('/profile', authenticateToken, async (req, res) => {
+  try {
+    const user = await authService.updateUserProfile(req.user.userId, req.body || {});
+    res.json({
+      success: true,
+      message: 'Profile updated successfully',
+      user
+    });
+  } catch (error) {
+    console.error('Profile update error:', error);
+
+    if (
+      error.message.includes('required') ||
+      error.message.includes('valid email') ||
+      error.message.includes('already exists')
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: error.message
+      });
+    }
+
+    if (error.message === 'User not found') {
+      return res.status(404).json({
+        success: false,
+        message: error.message
+      });
+    }
+
+    res.status(500).json({
+      success: false,
+      message: 'Failed to update profile',
       error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
     });
   }

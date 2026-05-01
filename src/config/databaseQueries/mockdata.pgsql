@@ -2,10 +2,10 @@
 -- admin -> adminpassword
 -- trungngothanh13 -> Supernegative1
 -- student_sarah -> student2password
-INSERT INTO "User" (Username, Email, Password, Role) VALUES
-('admin', NULL, '$2b$10$DbrVlKXmFJf6IXo/jF3l5ONDBF1GWzZ4NC6s79rJNdOEnwdQfE1.S', 'admin'),
-('trungngothanh13', 'trungngothanh13@gmail.com', '$2b$10$isxP.bYHQEoGJxGsPwGM.u7OfY8uAjPzRDXcPOtCXJoHXLRyWyE96', 'user'),
-('student_sarah', NULL, '$2b$10$kSRL9HRPlKCvv6HWJgvMSe40a8LpkxDAG7AbA8686jjwPZYebIlZy', 'user');
+INSERT INTO "User" (Username, Name, Email, Password, Role) VALUES
+('admin', 'System Admin', NULL, '$2b$10$DbrVlKXmFJf6IXo/jF3l5ONDBF1GWzZ4NC6s79rJNdOEnwdQfE1.S', 'admin'),
+('trungngothanh13', 'Trung Ngo Thanh', 'trungngothanh13@gmail.com', '$2b$10$isxP.bYHQEoGJxGsPwGM.u7OfY8uAjPzRDXcPOtCXJoHXLRyWyE96', 'user'),
+('student_sarah', 'Sarah Student', NULL, '$2b$10$kSRL9HRPlKCvv6HWJgvMSe40a8LpkxDAG7AbA8686jjwPZYebIlZy', 'user');
 
 -- Insert sample courses (admin-managed, hardcoded in system)
 -- Course 1: Italian Pasta Fundamentals

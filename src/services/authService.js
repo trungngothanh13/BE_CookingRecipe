@@ -51,10 +51,10 @@ function generateToken(userId, username, role) {
  * @returns {Promise<Object>} User data and token
  * @throws {Error} If validation fails or user already exists
  */
-async function registerUser(username, password, profilePicture = null) {
+async function registerUser(username, password, profilePicture = null, name = null, email = null) {
   // Validation
-  if (!username || !password) {
-    throw new Error('Username and password are required');
+  if (!username || !password || !name || !email) {
+    throw new Error('Name, email, username and password are required');
   }
 
   if (username.length < 3 || username.length > 50) {
@@ -65,14 +65,20 @@ async function registerUser(username, password, profilePicture = null) {
     throw new Error('Password must be at least 6 characters long');
   }
 
+  const normalizedEmail = String(email).trim().toLowerCase();
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(normalizedEmail)) {
+    throw new Error('A valid email is required');
+  }
+
   // Check if username already exists
   const existingUser = await pool.query(
-    'SELECT userid FROM "User" WHERE username = $1',
-    [username]
+    'SELECT userid FROM "User" WHERE username = $1 OR LOWER(email) = $2',
+    [username, normalizedEmail]
   );
 
   if (existingUser.rows.length > 0) {
-    throw new Error('Username already exists');
+    throw new Error('Username or email already exists');
   }
 
   // Hash the password
@@ -80,8 +86,10 @@ async function registerUser(username, password, profilePicture = null) {
 
   // Insert new user (default role is 'user')
   const result = await pool.query(
-    'INSERT INTO "User" (username, password, profilepicture) VALUES ($1, $2, $3) RETURNING userid, username, profilepicture, role',
-    [username, hashedPassword, profilePicture]
+    `INSERT INTO "User" (username, name, email, password, profilepicture)
+     VALUES ($1, $2, $3, $4, $5)
+     RETURNING userid, username, name, email, profilepicture, role`,
+    [username, String(name).trim(), normalizedEmail, hashedPassword, profilePicture]
   );
 
   const newUser = result.rows[0];
@@ -93,6 +101,8 @@ async function registerUser(username, password, profilePicture = null) {
     user: {
       id: newUser.userid,
       username: newUser.username,
+      name: newUser.name,
+      email: newUser.email,
       profilePicture: newUser.profilepicture,
       role: newUser.role
     },
@@ -115,7 +125,7 @@ async function loginUser(username, password) {
 
   // Find user in database
   const result = await pool.query(
-    'SELECT userid, username, password, profilepicture, role FROM "User" WHERE username = $1',
+    'SELECT userid, username, name, email, password, profilepicture, role FROM "User" WHERE username = $1',
     [username]
   );
 
@@ -139,6 +149,8 @@ async function loginUser(username, password) {
     user: {
       id: user.userid,
       username: user.username,
+      name: user.name,
+      email: user.email,
       profilePicture: user.profilepicture,
       role: user.role
     },
@@ -154,7 +166,7 @@ async function loginUser(username, password) {
  */
 async function getUserProfile(userId) {
   const result = await pool.query(
-    'SELECT userid, username, profilepicture, role, createdat FROM "User" WHERE userid = $1',
+    'SELECT userid, username, name, email, profilepicture, role, createdat FROM "User" WHERE userid = $1',
     [userId]
   );
 
@@ -167,6 +179,53 @@ async function getUserProfile(userId) {
   return {
     id: user.userid,
     username: user.username,
+    name: user.name,
+    email: user.email,
+    profilePicture: user.profilepicture,
+    role: user.role,
+    createdAt: user.createdat
+  };
+}
+
+async function updateUserProfile(userId, payload = {}) {
+  const name = String(payload.name || '').trim();
+  const email = String(payload.email || '').trim().toLowerCase();
+
+  if (!name || !email) {
+    throw new Error('Name and email are required');
+  }
+
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(email)) {
+    throw new Error('A valid email is required');
+  }
+
+  const existing = await pool.query(
+    'SELECT userid FROM "User" WHERE LOWER(email) = $1 AND userid <> $2 LIMIT 1',
+    [email, userId]
+  );
+  if (existing.rows.length > 0) {
+    throw new Error('Email already exists');
+  }
+
+  const updated = await pool.query(
+    `UPDATE "User"
+     SET name = $1, email = $2, updatedat = NOW()
+     WHERE userid = $3
+     RETURNING userid, username, name, email, profilepicture, role, createdat`,
+    [name, email, userId]
+  );
+
+  if (updated.rows.length === 0) {
+    throw new Error('User not found');
+  }
+
+  const user = updated.rows[0];
+  return {
+    id: user.userid,
+    username: user.username,
+    name: user.name,
+    email: user.email,
     profilePicture: user.profilepicture,
     role: user.role,
     createdAt: user.createdat
@@ -177,6 +236,7 @@ module.exports = {
   registerUser,
   loginUser,
   getUserProfile,
+  updateUserProfile,
   generateToken,
   hashPassword,
   comparePassword

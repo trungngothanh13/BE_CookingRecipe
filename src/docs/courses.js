@@ -51,7 +51,7 @@
  *       403:
  *         description: Admin access required
  *
- * /api/courses/purchased:
+ * /api/courses/me/purchases:
  *   get:
  *     tags:
  *       - Courses
@@ -172,6 +172,29 @@
  *     responses:
  *       200:
  *         description: Learning detail retrieved
+ *       403:
+ *         description: Course not purchased
+ *       404:
+ *         description: Course not found
+ *
+ * /api/courses/{id}/certificate:
+ *   get:
+ *     tags:
+ *       - Courses
+ *     summary: Download certificate PDF (>95% progress required)
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: PDF file stream
+ *       400:
+ *         description: Progress is not enough for certificate
  *       403:
  *         description: Course not purchased
  *       404:
