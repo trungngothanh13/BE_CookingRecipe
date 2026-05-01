@@ -128,7 +128,6 @@ function shapeOrderRow(row) {
     paymentMethod: row.paymentMethod,
     paymentProof: row.paymentProof,
     status: row.status,
-    adminNotes: row.adminNotes,
     createdAt: row.createdAt,
     verifiedAt: row.verifiedAt,
     verifiedBy: row.verifiedBy,
@@ -143,8 +142,7 @@ async function getUserTransactions(userId, status = null) {
   let query = `
     SELECT orderid as id, userid as "userId", totalamount as "totalAmount", items,
            paymentmethod as "paymentMethod", paymentproof as "paymentProof", status,
-           adminnotes as "adminNotes", createdat as "createdAt",
-           verifiedat as "verifiedAt", verifiedby as "verifiedBy"
+           createdat as "createdAt", verifiedat as "verifiedAt", verifiedby as "verifiedBy"
     FROM "Order"
     WHERE userid = $1`;
   const params = [userId];
@@ -226,7 +224,7 @@ async function getAllTransactions(options = {}) {
   };
 }
 
-async function verifyTransaction(transactionId, adminId, adminNotes = null) {
+async function verifyTransaction(transactionId, adminId) {
   const client = await pool.connect();
   try {
     const check = await client.query(
@@ -245,10 +243,9 @@ async function verifyTransaction(transactionId, adminId, adminNotes = null) {
     await client.query('BEGIN');
     await client.query(
       `UPDATE "Order"
-       SET status = 'verified', verifiedat = CURRENT_TIMESTAMP, verifiedby = $1,
-           adminnotes = COALESCE($2, adminnotes)
-       WHERE orderid = $3`,
-      [adminId, adminNotes, transactionId]
+       SET status = 'verified', verifiedat = CURRENT_TIMESTAMP, verifiedby = $1
+       WHERE orderid = $2`,
+      [adminId, transactionId]
     );
 
     const accessIds = [];
@@ -290,7 +287,7 @@ async function verifyTransaction(transactionId, adminId, adminNotes = null) {
   }
 }
 
-async function rejectTransaction(transactionId, adminId, adminNotes) {
+async function rejectTransaction(transactionId, adminId) {
   const client = await pool.connect();
   try {
     const check = await client.query(
@@ -300,16 +297,12 @@ async function rejectTransaction(transactionId, adminId, adminNotes) {
     if (check.rows.length === 0) throw new Error('Transaction not found');
     if (check.rows[0].status === 'verified') throw new Error('Cannot reject a verified transaction');
     if (check.rows[0].status === 'rejected') throw new Error('Transaction is already rejected');
-    if (!adminNotes || adminNotes.trim().length === 0) {
-      throw new Error('Admin notes are required when rejecting a transaction');
-    }
-
     const result = await client.query(
       `UPDATE "Order"
-       SET status = 'rejected', verifiedby = $1, adminnotes = $2
-       WHERE orderid = $3
-       RETURNING orderid as "transactionId", status, adminnotes as "adminNotes"`,
-      [adminId, adminNotes.trim(), transactionId]
+       SET status = 'rejected', verifiedby = $1
+       WHERE orderid = $2
+       RETURNING orderid as "transactionId", status`,
+      [adminId, transactionId]
     );
     return result.rows[0];
   } finally {
@@ -323,7 +316,7 @@ async function getTransactionById(transactionId, userId, userRole) {
     const result = await client.query(
       `SELECT orderid as id, userid as "userId", totalamount as "totalAmount", items,
               paymentmethod as "paymentMethod", paymentproof as "paymentProof",
-              status, adminnotes as "adminNotes", createdat as "createdAt",
+              status, createdat as "createdAt",
               verifiedat as "verifiedAt", verifiedby as "verifiedBy"
        FROM "Order"
        WHERE orderid = $1`,

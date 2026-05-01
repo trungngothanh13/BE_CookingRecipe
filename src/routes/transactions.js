@@ -278,7 +278,6 @@ router.put('/:id/verify', authenticateToken, requireAdmin, async (req, res) => {
   try {
     const transactionId = parseInt(req.params.id);
     const adminId = req.user.userId;
-    const { adminNotes } = req.body;
 
     if (isNaN(transactionId)) {
       return res.status(400).json({
@@ -289,8 +288,7 @@ router.put('/:id/verify', authenticateToken, requireAdmin, async (req, res) => {
 
     const result = await transactionService.verifyTransaction(
       transactionId,
-      adminId,
-      adminNotes
+      adminId
     );
 
     res.json({
@@ -309,8 +307,9 @@ router.put('/:id/verify', authenticateToken, requireAdmin, async (req, res) => {
       });
     }
 
-    if (error.message.includes('already') || 
-        error.message.includes('Cannot verify')) {
+    if (error.message.includes('already') ||
+        error.message.includes('Cannot verify') ||
+        error.message.includes('no courses')) {
       return res.status(400).json({
         success: false,
         message: error.message
@@ -329,7 +328,6 @@ router.put('/:id/reject', authenticateToken, requireAdmin, async (req, res) => {
   try {
     const transactionId = parseInt(req.params.id);
     const adminId = req.user.userId;
-    const { adminNotes } = req.body;
 
     if (isNaN(transactionId)) {
       return res.status(400).json({
@@ -340,8 +338,7 @@ router.put('/:id/reject', authenticateToken, requireAdmin, async (req, res) => {
 
     const result = await transactionService.rejectTransaction(
       transactionId,
-      adminId,
-      adminNotes
+      adminId
     );
 
     res.json({

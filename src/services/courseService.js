@@ -26,6 +26,7 @@ async function getCoursesOverview(options = {}) {
       c.price,
       c.difficulty,
       c.duration,
+      c.createdat as "createdAt",
       COALESCE(module_counts.modulecount, 0) as "moduleCount",
       COALESCE(course_ratings.rating, c.averagerating, 0) as rating
     FROM Course c
@@ -109,6 +110,7 @@ async function getCoursesOverview(options = {}) {
       price: parseFloat(course.price),
       difficulty: course.difficulty,
       duration: course.duration,
+      createdAt: course.createdAt,
       moduleCount: parseInt(course.moduleCount, 10),
       rating: parseFloat(course.rating)
     })),
@@ -226,6 +228,14 @@ async function assertCoursePurchase(userId, courseId) {
   if (purchaseResult.rows.length === 0) {
     throw new Error('Course access denied');
   }
+}
+
+async function hasCourseAccess(userId, courseId) {
+  const result = await pool.query(
+    'SELECT 1 FROM CourseAccess WHERE userid = $1 AND courseid = $2 LIMIT 1',
+    [userId, courseId]
+  );
+  return result.rows.length > 0;
 }
 
 async function getCourseLearningDetail(courseId, userId) {
@@ -452,11 +462,389 @@ async function getPurchasedCourseIds(userId) {
   return result.rows.map((row) => Number(row.courseid));
 }
 
+function normalizeDifficulty(value) {
+  const normalized = String(value || 'beginner').toLowerCase();
+  if (['beginner', 'intermediate', 'advanced'].includes(normalized)) {
+    return normalized;
+  }
+  return 'beginner';
+}
+
+function normalizeContentType(value) {
+  const normalized = String(value || 'article').toLowerCase();
+  if (['article', 'video', 'assignment'].includes(normalized)) {
+    return normalized;
+  }
+  return 'article';
+}
+
+function validateCoursePayload(payload) {
+  if (!payload || typeof payload !== 'object') {
+    throw new Error('Invalid payload');
+  }
+  if (!payload.title || typeof payload.title !== 'string' || !payload.title.trim()) {
+    throw new Error('Course title is required');
+  }
+  const modules = Array.isArray(payload.modules) ? payload.modules : [];
+  modules.forEach((module, moduleIndex) => {
+    if (!module.title || typeof module.title !== 'string' || !module.title.trim()) {
+      throw new Error(`Module title is required at index ${moduleIndex}`);
+    }
+    const lessons = Array.isArray(module.lessons) ? module.lessons : [];
+    lessons.forEach((lesson, lessonIndex) => {
+      if (!lesson.title || typeof lesson.title !== 'string' || !lesson.title.trim()) {
+        throw new Error(`Lesson title is required at module ${moduleIndex}, lesson ${lessonIndex}`);
+      }
+    });
+  });
+}
+
+async function getAdminCourseDetail(courseId) {
+  const courseResult = await pool.query(
+    `SELECT
+      courseid as id,
+      coursetitle as title,
+      description,
+      thumbnail,
+      price,
+      difficulty,
+      duration,
+      category,
+      modulecount as "moduleCount",
+      viewcount as "viewCount",
+      purchasecount as "purchaseCount",
+      averagerating as rating,
+      createdat as "createdAt",
+      updatedat as "updatedAt"
+    FROM Course
+    WHERE courseid = $1`,
+    [courseId]
+  );
+  if (courseResult.rows.length === 0) throw new Error('Course not found');
+
+  const modulesResult = await pool.query(
+    `SELECT
+      m.moduleid as id,
+      m.moduletitle as title,
+      m.description,
+      m.moduleorder as "order",
+      m.updatedat as "updatedAt",
+      l.lessonid as "lessonId",
+      l.lessontitle as "lessonTitle",
+      l.description as "lessonDescription",
+      l.lessonorder as "lessonOrder",
+      l.contenttype as "contentType",
+      l.durationminutes as "durationMinutes",
+      lc.articletext as "articleText",
+      lc.videourl as "videoUrl",
+      lc.videoduration as "videoDuration",
+      lc.assignmentquestions as "assignmentQuestions",
+      lc.passingscore as "passingScore"
+    FROM Module m
+    LEFT JOIN Lesson l ON l.moduleid = m.moduleid
+    LEFT JOIN LessonContent lc ON lc.lessonid = l.lessonid
+    WHERE m.courseid = $1
+    ORDER BY m.moduleorder ASC, l.lessonorder ASC`,
+    [courseId]
+  );
+
+  const modulesMap = new Map();
+  for (const row of modulesResult.rows) {
+    if (!modulesMap.has(row.id)) {
+      modulesMap.set(row.id, {
+        id: row.id,
+        title: row.title,
+        description: row.description,
+        order: row.order,
+        updatedAt: row.updatedAt,
+        lessons: []
+      });
+    }
+    if (row.lessonId) {
+      modulesMap.get(row.id).lessons.push({
+        id: row.lessonId,
+        title: row.lessonTitle,
+        description: row.lessonDescription,
+        order: row.lessonOrder,
+        contentType: row.contentType,
+        durationMinutes: row.durationMinutes,
+        content: {
+          articleText: row.articleText,
+          videoUrl: row.videoUrl,
+          videoDuration: row.videoDuration,
+          assignmentQuestions: row.assignmentQuestions || [],
+          passingScore: row.passingScore || 70
+        }
+      });
+    }
+  }
+
+  return {
+    course: {
+      ...courseResult.rows[0],
+      price: parseFloat(courseResult.rows[0].price),
+      rating: parseFloat(courseResult.rows[0].rating || 0)
+    },
+    modules: Array.from(modulesMap.values())
+  };
+}
+
+async function createOrReplaceCourse(courseId, payload) {
+  validateCoursePayload(payload);
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    let currentCourseId = courseId;
+    const modules = Array.isArray(payload.modules) ? payload.modules : [];
+    const explicitDuration = Number(payload.duration ?? 0);
+    const computedDuration = modules.reduce((sum, module) => {
+      const lessons = Array.isArray(module.lessons) ? module.lessons : [];
+      return sum + lessons.reduce((acc, lesson) => acc + Number(lesson.durationMinutes || 0), 0);
+    }, 0);
+    const duration = explicitDuration > 0 ? explicitDuration : computedDuration;
+
+    if (currentCourseId) {
+      const exists = await client.query('SELECT courseid FROM Course WHERE courseid = $1', [currentCourseId]);
+      if (exists.rows.length === 0) throw new Error('Course not found');
+
+      await client.query(
+        `UPDATE Course
+         SET coursetitle = $1,
+             description = $2,
+             thumbnail = $3,
+             price = $4,
+             difficulty = $5,
+             duration = $6,
+             modulecount = $7,
+             category = $8,
+             updatedat = NOW()
+         WHERE courseid = $9`,
+        [
+          payload.title.trim(),
+          payload.description || null,
+          payload.thumbnail || null,
+          Number(payload.price || 0),
+          normalizeDifficulty(payload.difficulty),
+          duration,
+          modules.length,
+          payload.category || null,
+          currentCourseId
+        ]
+      );
+
+      await client.query('DELETE FROM Module WHERE courseid = $1', [currentCourseId]);
+    } else {
+      const insertResult = await client.query(
+        `INSERT INTO Course (coursetitle, description, thumbnail, price, difficulty, duration, modulecount, category)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+         RETURNING courseid`,
+        [
+          payload.title.trim(),
+          payload.description || null,
+          payload.thumbnail || null,
+          Number(payload.price || 0),
+          normalizeDifficulty(payload.difficulty),
+          duration,
+          modules.length,
+          payload.category || null
+        ]
+      );
+      currentCourseId = insertResult.rows[0].courseid;
+    }
+
+    for (let moduleIndex = 0; moduleIndex < modules.length; moduleIndex += 1) {
+      const module = modules[moduleIndex];
+      const moduleOrder = Number(module.order || moduleIndex + 1);
+      const moduleResult = await client.query(
+        `INSERT INTO Module (courseid, moduletitle, description, moduleorder)
+         VALUES ($1, $2, $3, $4)
+         RETURNING moduleid`,
+        [currentCourseId, module.title.trim(), module.description || null, moduleOrder]
+      );
+      const moduleId = moduleResult.rows[0].moduleid;
+      const lessons = Array.isArray(module.lessons) ? module.lessons : [];
+
+      for (let lessonIndex = 0; lessonIndex < lessons.length; lessonIndex += 1) {
+        const lesson = lessons[lessonIndex];
+        const contentType = normalizeContentType(lesson.contentType);
+        const lessonOrder = Number(lesson.order || lessonIndex + 1);
+        const lessonResult = await client.query(
+          `INSERT INTO Lesson (moduleid, lessontitle, description, lessonorder, contenttype, durationminutes)
+           VALUES ($1, $2, $3, $4, $5, $6)
+           RETURNING lessonid`,
+          [
+            moduleId,
+            lesson.title.trim(),
+            lesson.description || null,
+            lessonOrder,
+            contentType,
+            Number(lesson.durationMinutes || 0)
+          ]
+        );
+        const lessonId = lessonResult.rows[0].lessonid;
+        const content = lesson.content || {};
+
+        await client.query(
+          `INSERT INTO LessonContent (lessonid, contenttype, articletext, videourl, videoduration, assignmentquestions, passingscore)
+           VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+          [
+            lessonId,
+            contentType,
+            contentType === 'article' ? (content.articleText || '') : null,
+            contentType === 'video' ? (content.videoUrl || '') : null,
+            contentType === 'video' ? Number(content.videoDuration || 0) : null,
+            contentType === 'assignment' ? JSON.stringify(content.assignmentQuestions || []) : null,
+            contentType === 'assignment' ? Number(content.passingScore || 70) : 70
+          ]
+        );
+      }
+    }
+
+    await client.query('COMMIT');
+    return getAdminCourseDetail(currentCourseId);
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+async function createCourse(payload) {
+  return createOrReplaceCourse(null, payload);
+}
+
+async function updateCourse(courseId, payload) {
+  return createOrReplaceCourse(courseId, payload);
+}
+
+async function deleteCourse(courseId) {
+  const result = await pool.query('DELETE FROM Course WHERE courseid = $1 RETURNING courseid', [courseId]);
+  if (result.rows.length === 0) throw new Error('Course not found');
+  return { id: courseId };
+}
+
+async function getCourseReviews(courseId, currentUserId = null) {
+  const courseExists = await pool.query('SELECT courseid FROM Course WHERE courseid = $1', [courseId]);
+  if (courseExists.rows.length === 0) throw new Error('Course not found');
+
+  const reviewsResult = await pool.query(
+    `SELECT
+      cr.reviewid as id,
+      cr.userid as "userId",
+      u.username,
+      cr.ratingscore as rating,
+      cr.reviewtext as comment,
+      cr.createdat as "createdAt",
+      cr.updatedat as "updatedAt"
+    FROM CourseReview cr
+    INNER JOIN "User" u ON u.userid = cr.userid
+    WHERE cr.courseid = $1
+    ORDER BY cr.updatedat DESC`,
+    [courseId]
+  );
+
+  const summaryResult = await pool.query(
+    `SELECT
+      COALESCE(ROUND(AVG(ratingscore)::numeric, 2), 0) as rating,
+      COUNT(*)::int as count
+    FROM CourseReview
+    WHERE courseid = $1`,
+    [courseId]
+  );
+
+  const canReview = currentUserId ? await hasCourseAccess(currentUserId, courseId) : false;
+  const myReview = currentUserId
+    ? reviewsResult.rows.find((row) => Number(row.userId) === Number(currentUserId)) || null
+    : null;
+
+  return {
+    summary: {
+      rating: parseFloat(summaryResult.rows[0].rating || 0),
+      count: Number(summaryResult.rows[0].count || 0)
+    },
+    canReview,
+    myReview,
+    reviews: reviewsResult.rows.map((row) => ({
+      id: row.id,
+      userId: row.userId,
+      username: row.username,
+      rating: Number(row.rating),
+      comment: row.comment || '',
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt
+    }))
+  };
+}
+
+async function upsertCourseReview(userId, courseId, rating, comment = '') {
+  const courseExists = await pool.query('SELECT courseid FROM Course WHERE courseid = $1', [courseId]);
+  if (courseExists.rows.length === 0) throw new Error('Course not found');
+
+  const canReview = await hasCourseAccess(userId, courseId);
+  if (!canReview) throw new Error('Course access denied');
+
+  const score = Number(rating);
+  if (!Number.isInteger(score) || score < 1 || score > 5) {
+    throw new Error('Rating must be an integer from 1 to 5');
+  }
+
+  const reviewResult = await pool.query(
+    `INSERT INTO CourseReview (courseid, userid, ratingscore, reviewtext, createdat, updatedat)
+     VALUES ($1, $2, $3, $4, NOW(), NOW())
+     ON CONFLICT (courseid, userid)
+     DO UPDATE SET
+       ratingscore = EXCLUDED.ratingscore,
+       reviewtext = EXCLUDED.reviewtext,
+       updatedat = NOW()
+     RETURNING
+       reviewid as id,
+       userid as "userId",
+       ratingscore as rating,
+       reviewtext as comment,
+       createdat as "createdAt",
+       updatedat as "updatedAt"`,
+    [courseId, userId, score, String(comment || '').trim()]
+  );
+
+  await pool.query(
+    `UPDATE Course
+     SET averagerating = COALESCE((SELECT ROUND(AVG(ratingscore)::numeric, 2) FROM CourseReview WHERE courseid = $1), 0)
+     WHERE courseid = $1`,
+    [courseId]
+  );
+
+  return reviewResult.rows[0];
+}
+
+async function deleteCourseReview(userId, courseId) {
+  const result = await pool.query(
+    'DELETE FROM CourseReview WHERE courseid = $1 AND userid = $2 RETURNING reviewid',
+    [courseId, userId]
+  );
+  if (result.rows.length === 0) throw new Error('Review not found');
+
+  await pool.query(
+    `UPDATE Course
+     SET averagerating = COALESCE((SELECT ROUND(AVG(ratingscore)::numeric, 2) FROM CourseReview WHERE courseid = $1), 0)
+     WHERE courseid = $1`,
+    [courseId]
+  );
+}
+
 module.exports = {
   getCoursesOverview,
   getCourseOverviewDetail,
   getCourseLearningDetail,
   markLessonProgress,
   submitAssignment,
-  getPurchasedCourseIds
+  getPurchasedCourseIds,
+  getAdminCourseDetail,
+  createCourse,
+  updateCourse,
+  deleteCourse,
+  getCourseReviews,
+  upsertCourseReview,
+  deleteCourseReview
 };

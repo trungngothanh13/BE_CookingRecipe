@@ -6,12 +6,14 @@ const authRoutes = require('./routes/auth');
 const courseRoutes = require('./routes/courses');
 const cartRoutes = require('./routes/cart');
 const transactionRoutes = require('./routes/transactions');
+const imageRoutes = require('./routes/images');
 
 // Mount routes
 router.use('/auth', authRoutes);
 router.use('/courses', courseRoutes);
 router.use('/cart', cartRoutes);
 router.use('/transactions', transactionRoutes);
+router.use('/images', imageRoutes);
 
 // Export the main router
 module.exports = router;

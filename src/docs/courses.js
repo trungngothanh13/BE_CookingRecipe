@@ -4,178 +4,87 @@
  *   get:
  *     tags:
  *       - Courses
- *     summary: Get courses overview (Public)
- *     description: Get a list of courses with optional search and sorting.
+ *     summary: Get public course overview list
  *     parameters:
  *       - in: query
  *         name: search
  *         schema:
  *           type: string
- *         description: Search by course title or category
  *       - in: query
  *         name: sortBy
  *         schema:
  *           type: string
  *           enum: [price, newest, rating, popular]
- *           default: newest
- *         description: Sort order
  *       - in: query
  *         name: page
  *         schema:
  *           type: integer
  *           default: 1
- *         description: Page number
  *       - in: query
  *         name: limit
  *         schema:
  *           type: integer
  *           default: 20
- *         description: Items per page
  *     responses:
  *       200:
- *         description: Courses overview retrieved successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                 data:
- *                   type: object
- *                   properties:
- *                     courses:
- *                       type: array
- *                       items:
- *                         type: object
- *                         properties:
- *                           id:
- *                             type: integer
- *                           title:
- *                             type: string
- *                           description:
- *                             type: string
- *                           thumbnail:
- *                             type: string
- *                           price:
- *                             type: number
- *                           difficulty:
- *                             type: string
- *                           duration:
- *                             type: integer
- *                           moduleCount:
- *                             type: integer
- *                           rating:
- *                             type: number
- *                     pagination:
- *                       type: object
- *                       properties:
- *                         page:
- *                           type: integer
- *                         limit:
- *                           type: integer
- *                         total:
- *                           type: integer
- *                         totalPages:
- *                           type: integer
- */
-
-/**
- * @swagger
+ *         description: Courses retrieved successfully
+ *
+ *   post:
+ *     tags:
+ *       - Courses
+ *     summary: Create course (admin)
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *     responses:
+ *       201:
+ *         description: Course created successfully
+ *       400:
+ *         description: Invalid payload
+ *       401:
+ *         description: Authentication required
+ *       403:
+ *         description: Admin access required
+ *
+ * /api/courses/purchased:
+ *   get:
+ *     tags:
+ *       - Courses
+ *     summary: Get purchased course IDs for current user
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Purchased course IDs retrieved
+ *       401:
+ *         description: Authentication required
+ *
  * /api/courses/{id}:
  *   get:
  *     tags:
  *       - Courses
- *     summary: Get course overview detail (Public)
- *     description: Get a course overview with modules and lessons.
+ *     summary: Get public course detail
  *     parameters:
  *       - in: path
  *         name: id
  *         required: true
  *         schema:
  *           type: integer
- *         description: Course ID
  *     responses:
  *       200:
- *         description: Course overview retrieved successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                 data:
- *                   type: object
- *                   properties:
- *                     course:
- *                       type: object
- *                       properties:
- *                         title:
- *                           type: string
- *                         description:
- *                           type: string
- *                         thumbnail:
- *                           type: string
- *                         price:
- *                           type: number
- *                         difficulty:
- *                           type: string
- *                         duration:
- *                           type: integer
- *                         moduleCount:
- *                           type: integer
- *                         category:
- *                           type: string
- *                         viewCount:
- *                           type: integer
- *                         purchaseCount:
- *                           type: integer
- *                         rating:
- *                           type: number
- *                         updatedAt:
- *                           type: string
- *                           format: date-time
- *                     modules:
- *                       type: array
- *                       items:
- *                         type: object
- *                         properties:
- *                           title:
- *                             type: string
- *                           description:
- *                             type: string
- *                           updatedAt:
- *                             type: string
- *                             format: date-time
- *                           lessons:
- *                             type: array
- *                             items:
- *                               type: object
- *                               properties:
- *                                 title:
- *                                   type: string
- *                                 description:
- *                                   type: string
- *                                 contentType:
- *                                   type: string
- *                                 durationMinutes:
- *                                   type: integer
- *                                 updatedAt:
- *                                   type: string
- *                                   format: date-time
+ *         description: Course detail retrieved successfully
  *       404:
  *         description: Course not found
- */
-
-/**
- * @swagger
- * /api/courses/{id}/learn:
- *   get:
+ *
+ *   put:
  *     tags:
  *       - Courses
- *     summary: Get course learning detail (Purchased users only)
- *     description: Returns modules, lessons, content, and progress for a purchased course.
+ *     summary: Replace/update course (admin)
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -184,24 +93,95 @@
  *         required: true
  *         schema:
  *           type: integer
- *         description: Course ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
  *     responses:
  *       200:
- *         description: Learning content retrieved successfully
+ *         description: Course updated successfully
+ *       400:
+ *         description: Invalid payload
+ *       401:
+ *         description: Authentication required
  *       403:
- *         description: User has not purchased this course
+ *         description: Admin access required
  *       404:
  *         description: Course not found
- */
-
-/**
- * @swagger
+ *
+ *   delete:
+ *     tags:
+ *       - Courses
+ *     summary: Delete course (admin)
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Course deleted successfully
+ *       401:
+ *         description: Authentication required
+ *       403:
+ *         description: Admin access required
+ *       404:
+ *         description: Course not found
+ *
+ * /api/courses/{id}/admin:
+ *   get:
+ *     tags:
+ *       - Courses
+ *     summary: Get full course detail for admin editor
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Admin course detail retrieved
+ *       401:
+ *         description: Authentication required
+ *       403:
+ *         description: Admin access required
+ *       404:
+ *         description: Course not found
+ *
+ * /api/courses/{id}/learn:
+ *   get:
+ *     tags:
+ *       - Courses
+ *     summary: Get purchased learning detail
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Learning detail retrieved
+ *       403:
+ *         description: Course not purchased
+ *       404:
+ *         description: Course not found
+ *
  * /api/courses/{courseId}/lessons/{lessonId}/progress:
  *   put:
  *     tags:
  *       - Courses
- *     summary: Update lesson completion state (Non-assignment lessons)
- *     description: Marks article/video lessons as completed or not completed and returns updated course learning detail.
+ *     summary: Update lesson progress
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -228,23 +208,19 @@
  *               - isCompleted
  *     responses:
  *       200:
- *         description: Lesson progress updated successfully
+ *         description: Progress updated
  *       400:
- *         description: Invalid payload or assignment lesson update attempted
+ *         description: Invalid payload
  *       403:
- *         description: User has not purchased this course
+ *         description: Course not purchased
  *       404:
  *         description: Lesson not found
- */
-
-/**
- * @swagger
+ *
  * /api/courses/{courseId}/lessons/{lessonId}/assignment/submit:
  *   post:
  *     tags:
  *       - Courses
  *     summary: Submit assignment answers
- *     description: Evaluates assignment answers, stores score, determines pass by LessonContent passing score, and returns updated learning detail.
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -264,20 +240,126 @@
  *         application/json:
  *           schema:
  *             type: object
- *             properties:
- *               answers:
- *                 type: array
- *                 items:
- *                   type: integer
- *             required:
- *               - answers
  *     responses:
  *       200:
- *         description: Assignment submitted successfully
+ *         description: Assignment submitted
  *       400:
- *         description: Invalid request or non-assignment lesson
+ *         description: Invalid payload
  *       403:
- *         description: User has not purchased this course
+ *         description: Course not purchased
  *       404:
- *         description: Lesson or assignment content not found
+ *         description: Lesson not found
+ *
+ * /api/courses/{id}/reviews:
+ *   get:
+ *     tags:
+ *       - Courses
+ *     summary: Get course reviews and summary
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Reviews retrieved successfully
+ *       404:
+ *         description: Course not found
+ *
+ *   post:
+ *     tags:
+ *       - Courses
+ *     summary: Create or update current user's review
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               rating:
+ *                 type: integer
+ *               comment:
+ *                 type: string
+ *             required:
+ *               - rating
+ *     responses:
+ *       200:
+ *         description: Review saved successfully
+ *       400:
+ *         description: Invalid payload
+ *       401:
+ *         description: Authentication required
+ *       403:
+ *         description: Course not purchased
+ *       404:
+ *         description: Course not found
+ *
+ *   put:
+ *     tags:
+ *       - Courses
+ *     summary: Update current user's review
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               rating:
+ *                 type: integer
+ *               comment:
+ *                 type: string
+ *             required:
+ *               - rating
+ *     responses:
+ *       200:
+ *         description: Review updated successfully
+ *       400:
+ *         description: Invalid payload
+ *       401:
+ *         description: Authentication required
+ *       403:
+ *         description: Course not purchased
+ *       404:
+ *         description: Course not found
+ *
+ *   delete:
+ *     tags:
+ *       - Courses
+ *     summary: Delete current user's review
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Review deleted successfully
+ *       401:
+ *         description: Authentication required
+ *       403:
+ *         description: Course not purchased
+ *       404:
+ *         description: Course not found
  */

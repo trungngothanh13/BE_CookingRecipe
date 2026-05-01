@@ -16,9 +16,9 @@ const swaggerOptions = {
   definition: {
     openapi: '3.0.0',
     info: {
-      title: 'Recipe API',
+      title: 'Cooking Course API',
       version: '1.0.0',
-      description: 'A recipe management API',
+      description: 'Course catalog, cart, order, and access management API',
     },
     servers: [
       {
@@ -36,6 +36,18 @@ const swaggerOptions = {
       {
         name: 'Courses',
         description: 'Public course catalog'
+      },
+      {
+        name: 'Cart',
+        description: 'Course cart operations'
+      },
+      {
+        name: 'Orders',
+        description: 'Checkout, payment proof, and verification flow'
+      },
+      {
+        name: 'Images',
+        description: 'Profile and course image uploads'
       }
     ],
     components: {
@@ -51,9 +63,15 @@ const swaggerOptions = {
   apis: [
     './src/docs/auth.js',
     './src/docs/courses.js',
+    './src/docs/cart.js',
+    './src/docs/transactions.js',
+    './src/docs/images.js',
     './src/docs/schemas.js',
     './src/routes/auth.js',
-    './src/routes/courses.js'
+    './src/routes/courses.js',
+    './src/routes/cart.js',
+    './src/routes/transactions.js',
+    './src/routes/images.js'
   ],
 };
 

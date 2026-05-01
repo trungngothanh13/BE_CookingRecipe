@@ -74,7 +74,7 @@ router.post('/profile', authenticateToken, upload.single('image'), async (req, r
 });
 
 
-router.post('/recipe-thumbnail', authenticateToken, requireAdmin, upload.single('image'), async (req, res) => {
+router.post('/course-thumbnail', authenticateToken, requireAdmin, upload.single('image'), async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({
@@ -83,56 +83,48 @@ router.post('/recipe-thumbnail', authenticateToken, requireAdmin, upload.single(
       });
     }
 
-    const { recipeId } = req.body;
-
-    if (!recipeId) {
+    const { courseId } = req.body;
+    if (!courseId) {
       return res.status(400).json({
         success: false,
-        message: 'Recipe ID is required'
+        message: 'Course ID is required'
       });
     }
 
-    const recipeIdInt = parseInt(recipeId);
-    if (isNaN(recipeIdInt)) {
+    const courseIdInt = parseInt(courseId, 10);
+    if (Number.isNaN(courseIdInt)) {
       return res.status(400).json({
         success: false,
-        message: 'Invalid recipe ID'
+        message: 'Invalid course ID'
       });
     }
 
-    const result = await imageService.uploadRecipeThumbnail(recipeIdInt, req.file.path);
-
-    // Clean up temporary file
+    const result = await imageService.uploadCourseThumbnail(courseIdInt, req.file.path);
     await fs.unlink(req.file.path);
 
     res.json({
       success: true,
-      message: 'Video thumbnail uploaded successfully',
+      message: 'Course thumbnail uploaded successfully',
       data: result
     });
-
   } catch (error) {
-    console.error('Video thumbnail upload error:', error);
-    
-    // Clean up temporary file if it exists
+    console.error('Course thumbnail upload error:', error);
     if (req.file) {
       try {
         await fs.unlink(req.file.path);
-      } catch (cleanupError) {
-        // Cleanup error - file may not exist, continue
+      } catch (_) {
+        // noop
       }
     }
-
-    if (error.message === 'Recipe not found') {
+    if (error.message === 'Course not found') {
       return res.status(404).json({
         success: false,
         message: error.message
       });
     }
-    
     res.status(500).json({
       success: false,
-      message: 'Failed to upload video thumbnail',
+      message: 'Failed to upload course thumbnail',
       error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
     });
   }

@@ -196,6 +196,63 @@ async function uploadRecipeThumbnail(recipeId, filePath) {
 }
 
 /**
+ * Upload course thumbnail image (admin only)
+ * @param {number} courseId - Course ID
+ * @param {string} filePath - Path to temporary file
+ */
+async function uploadCourseThumbnail(courseId, filePath) {
+  const client = await pool.connect();
+  try {
+    const courseResult = await client.query(
+      'SELECT thumbnail FROM Course WHERE courseid = $1',
+      [courseId]
+    );
+    if (courseResult.rows.length === 0) {
+      throw new Error('Course not found');
+    }
+
+    const oldThumbnail = courseResult.rows[0].thumbnail;
+    const uploadResult = await uploadToCloudinary(filePath, {
+      folder: 'course-thumbnails',
+      resource_type: 'image',
+      transformation: [
+        { width: 1200, height: 675, crop: 'fill', quality: 'auto:good' },
+        { fetch_format: 'auto' }
+      ],
+    });
+
+    await client.query('BEGIN');
+    await client.query(
+      'UPDATE Course SET thumbnail = $1, updatedat = NOW() WHERE courseid = $2',
+      [uploadResult.secure_url, courseId]
+    );
+    await client.query('COMMIT');
+
+    if (oldThumbnail) {
+      const oldPublicId = extractPublicId(oldThumbnail);
+      if (oldPublicId) {
+        try {
+          await deleteFromCloudinary(oldPublicId);
+        } catch (_) {
+          // best-effort cleanup
+        }
+      }
+    }
+
+    return {
+      imageUrl: uploadResult.secure_url,
+      thumbnailUrl: uploadResult.secure_url,
+      publicId: uploadResult.public_id
+    };
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+/**
  * Upload payment proof image for transaction
  * @param {string} filePath - Path to temporary file
  * @returns {Promise<Object>} Upload result with imageUrl and publicId
@@ -239,6 +296,7 @@ async function verifyRecipeOwnership(recipeId, userId) {
 module.exports = {
   uploadProfilePicture,
   uploadRecipeThumbnail,
+  uploadCourseThumbnail,
   uploadPaymentProof,
   verifyRecipeOwnership,
   uploadToCloudinary,

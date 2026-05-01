@@ -3,57 +3,14 @@
  * /api/transactions:
  *   post:
  *     tags:
- *       - Transactions
- *     summary: Create a transaction from cart
- *     description: Creates a new transaction from items in the user's cart. Creates Transaction and Transaction_Recipe entries, then clears the cart.
+ *       - Orders
+ *     summary: Create order from cart
+ *     description: Creates an order from current cart items and clears the cart.
  *     security:
  *       - bearerAuth: []
  *     responses:
  *       201:
- *         description: Transaction created successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                   example: true
- *                 message:
- *                   type: string
- *                   example: "Transaction created successfully. Please submit payment proof."
- *                 data:
- *                   type: object
- *                   properties:
- *                     id:
- *                       type: integer
- *                       example: 1
- *                     userId:
- *                       type: integer
- *                       example: 2
- *                     totalAmount:
- *                       type: number
- *                       format: float
- *                       example: 19.98
- *                     status:
- *                       type: string
- *                       example: "pending"
- *                     createdAt:
- *                       type: string
- *                       format: date-time
- *                     recipes:
- *                       type: array
- *                       items:
- *                         type: object
- *                         properties:
- *                           recipeId:
- *                             type: integer
- *                           recipeTitle:
- *                             type: string
- *                           price:
- *                             type: number
- *                     itemCount:
- *                       type: integer
+ *         description: Order created successfully
  *       400:
  *         description: Cart is empty
  *       401:
@@ -63,9 +20,9 @@
  *
  *   get:
  *     tags:
- *       - Transactions
- *     summary: Get user's transactions
- *     description: Retrieve all transactions for the authenticated user, optionally filtered by status
+ *       - Orders
+ *     summary: Get current user's orders
+ *     description: Returns the authenticated user's orders. Optional filter by status.
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -74,45 +31,10 @@
  *         schema:
  *           type: string
  *           enum: [pending, verified, rejected]
- *         description: Filter by transaction status
+ *         description: Filter by order status
  *     responses:
  *       200:
- *         description: Transactions retrieved successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                   example: true
- *                 data:
- *                   type: array
- *                   items:
- *                     type: object
- *                     properties:
- *                       id:
- *                         type: integer
- *                       userId:
- *                         type: integer
- *                       totalAmount:
- *                         type: number
- *                       paymentMethod:
- *                         type: string
- *                       paymentProof:
- *                         type: string
- *                       status:
- *                         type: string
- *                       adminNotes:
- *                         type: string
- *                       createdAt:
- *                         type: string
- *                       verifiedAt:
- *                         type: string
- *                       verifiedBy:
- *                         type: integer
- *                       recipeCount:
- *                         type: integer
+ *         description: Orders retrieved successfully
  *       401:
  *         description: Authentication required
  *       500:
@@ -121,9 +43,9 @@
  * /api/transactions/all:
  *   get:
  *     tags:
- *       - Transactions
- *     summary: Get all transactions (admin only)
- *     description: Retrieve all transactions with pagination and filtering options. Admin access required.
+ *       - Orders
+ *     summary: Get all orders (admin)
+ *     description: Admin endpoint for listing all orders with pagination/filtering.
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -132,53 +54,25 @@
  *         schema:
  *           type: string
  *           enum: [pending, verified, rejected]
- *         description: Filter by status
  *       - in: query
  *         name: userId
  *         schema:
  *           type: integer
- *         description: Filter by user ID
  *       - in: query
  *         name: page
  *         schema:
  *           type: integer
  *           default: 1
- *         description: Page number
  *       - in: query
  *         name: limit
  *         schema:
  *           type: integer
  *           default: 20
- *         description: Items per page
  *     responses:
  *       200:
- *         description: Transactions retrieved successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                   example: true
- *                 data:
- *                   type: object
- *                   properties:
- *                     transactions:
- *                       type: array
- *                       items:
- *                         type: object
- *                     pagination:
- *                       type: object
- *                       properties:
- *                         page:
- *                           type: integer
- *                         limit:
- *                           type: integer
- *                         total:
- *                           type: integer
- *                         totalPages:
- *                           type: integer
+ *         description: Orders retrieved successfully
+ *       401:
+ *         description: Authentication required
  *       403:
  *         description: Admin access required
  *       500:
@@ -187,9 +81,9 @@
  * /api/transactions/{id}:
  *   get:
  *     tags:
- *       - Transactions
- *     summary: Get transaction detail
- *     description: Retrieve detailed information about a specific transaction including all recipes. Users can only view their own transactions, while admins can view any transaction.
+ *       - Orders
+ *     summary: Get one order detail
+ *     description: Users can view their own order, admins can view any order.
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -198,90 +92,26 @@
  *         required: true
  *         schema:
  *           type: integer
- *         description: Transaction ID
- *         example: 1
  *     responses:
  *       200:
- *         description: Transaction retrieved successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                   example: true
- *                 data:
- *                   type: object
- *                   properties:
- *                     id:
- *                       type: integer
- *                       example: 1
- *                     userId:
- *                       type: integer
- *                       example: 2
- *                     totalAmount:
- *                       type: number
- *                       format: float
- *                       example: 19.98
- *                     paymentMethod:
- *                       type: string
- *                       example: "Bank Transfer"
- *                     paymentProof:
- *                       type: string
- *                       description: URL of payment proof image
- *                     status:
- *                       type: string
- *                       enum: [pending, verified, rejected]
- *                       example: "pending"
- *                     adminNotes:
- *                       type: string
- *                       nullable: true
- *                       description: Admin notes (if any)
- *                     createdAt:
- *                       type: string
- *                       format: date-time
- *                     verifiedAt:
- *                       type: string
- *                       format: date-time
- *                       nullable: true
- *                     verifiedBy:
- *                       type: integer
- *                       nullable: true
- *                       description: Admin user ID who verified/rejected
- *                     recipeCount:
- *                       type: integer
- *                       example: 2
- *                     recipes:
- *                       type: array
- *                       items:
- *                         type: object
- *                         properties:
- *                           recipeId:
- *                             type: integer
- *                           title:
- *                             type: string
- *                           videoThumbnail:
- *                             type: string
- *                             nullable: true
- *                           price:
- *                             type: number
- *                             format: float
+ *         description: Order detail retrieved successfully
  *       400:
- *         description: Invalid transaction ID
+ *         description: Invalid order id
+ *       401:
+ *         description: Authentication required
  *       403:
- *         description: Access denied
+ *         description: Forbidden
  *       404:
- *         description: Transaction not found
+ *         description: Order not found
  *       500:
  *         description: Server error
  *
  * /api/transactions/{id}/payment:
  *   put:
  *     tags:
- *       - Transactions
- *     summary: Submit payment proof for a transaction
- *     description: Submit payment method and proof image for a pending transaction. Transaction must be in 'pending' status. The payment proof must be an image file (e.g., screenshot of bank transfer, payment receipt).
+ *       - Orders
+ *     summary: Submit payment proof for an order
+ *     description: Uploads payment proof image and payment method.
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -290,77 +120,39 @@
  *         required: true
  *         schema:
  *           type: integer
- *         description: Transaction ID
- *         example: 1
  *     requestBody:
  *       required: true
  *       content:
  *         multipart/form-data:
  *           schema:
  *             type: object
- *             required:
- *               - paymentMethod
- *               - paymentProof
  *             properties:
  *               paymentMethod:
  *                 type: string
- *                 description: Payment method (e.g., Bank Transfer, Paypal)
- *                 example: "Bank Transfer"
  *               paymentProof:
  *                 type: string
  *                 format: binary
- *                 description: "Payment proof image file (max 5MB). Accepted formats: jpg, jpeg, png, gif, webp"
- *           example:
- *             paymentMethod: "bank_transfer"
- *             paymentProof: "(binary file data)"
+ *             required:
+ *               - paymentMethod
+ *               - paymentProof
  *     responses:
  *       200:
  *         description: Payment proof submitted successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                   example: true
- *                 message:
- *                   type: string
- *                   example: "Payment proof submitted successfully. Waiting for admin verification."
- *                 data:
- *                   type: object
- *                   properties:
- *                     id:
- *                       type: integer
- *                     userId:
- *                       type: integer
- *                     totalAmount:
- *                       type: number
- *                     paymentMethod:
- *                       type: string
- *                     paymentProof:
- *                       type: string
- *                       description: URL of uploaded payment proof image
- *                     status:
- *                       type: string
- *                       example: "pending"
- *                     createdAt:
- *                       type: string
  *       400:
- *         description: Invalid input, missing file, or transaction already processed
+ *         description: Invalid payload
+ *       401:
+ *         description: Authentication required
  *       403:
- *         description: Access denied
- *       404:
- *         description: Transaction not found
+ *         description: Forbidden
  *       500:
  *         description: Server error
  *
  * /api/transactions/{id}/verify:
  *   put:
  *     tags:
- *       - Transactions
- *     summary: Verify a transaction (admin only)
- *     description: Verify a pending transaction. This creates Purchase entries for all recipes in the transaction and updates Recipe.PurchaseCount. Admin access required.
+ *       - Orders
+ *     summary: Verify order payment (admin)
+ *     description: Marks order verified and grants course access to purchaser.
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -369,63 +161,26 @@
  *         required: true
  *         schema:
  *           type: integer
- *         description: Transaction ID
- *         example: 1
- *     requestBody:
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               adminNotes:
- *                 type: string
- *                 description: Optional admin notes
- *                 example: "Payment verified successfully"
- *           example:
- *             adminNotes: "Payment verified successfully"
  *     responses:
  *       200:
- *         description: Transaction verified successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                   example: true
- *                 message:
- *                   type: string
- *                   example: "Transaction verified successfully. Purchase entries created."
- *                 data:
- *                   type: object
- *                   properties:
- *                     transactionId:
- *                       type: integer
- *                     status:
- *                       type: string
- *                       example: "verified"
- *                     purchaseCount:
- *                       type: integer
- *                     purchaseIds:
- *                       type: array
- *                       items:
- *                         type: integer
+ *         description: Order verified successfully
  *       400:
- *         description: Transaction already processed or invalid
+ *         description: Order cannot be verified
+ *       401:
+ *         description: Authentication required
  *       403:
  *         description: Admin access required
  *       404:
- *         description: Transaction not found
+ *         description: Order not found
  *       500:
  *         description: Server error
  *
  * /api/transactions/{id}/reject:
  *   put:
  *     tags:
- *       - Transactions
- *     summary: Reject a transaction (admin only)
- *     description: Reject a pending transaction. Admin notes are required to explain the rejection. Admin access required.
+ *       - Orders
+ *     summary: Reject order payment (admin)
+ *     description: Marks order rejected.
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -434,54 +189,17 @@
  *         required: true
  *         schema:
  *           type: integer
- *         description: Transaction ID
- *         example: 1
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required:
- *               - adminNotes
- *             properties:
- *               adminNotes:
- *                 type: string
- *                 description: Admin notes explaining rejection
- *                 example: "Payment proof is unclear or invalid"
- *           example:
- *             adminNotes: "Payment proof is unclear or invalid"
  *     responses:
  *       200:
- *         description: Transaction rejected successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                   example: true
- *                 message:
- *                   type: string
- *                   example: "Transaction rejected successfully"
- *                 data:
- *                   type: object
- *                   properties:
- *                     transactionId:
- *                       type: integer
- *                     status:
- *                       type: string
- *                       example: "rejected"
- *                     adminNotes:
- *                       type: string
+ *         description: Order rejected successfully
  *       400:
- *         description: Invalid input or transaction already processed
+ *         description: Order cannot be rejected
+ *       401:
+ *         description: Authentication required
  *       403:
  *         description: Admin access required
  *       404:
- *         description: Transaction not found
+ *         description: Order not found
  *       500:
  *         description: Server error
  */
-

@@ -139,7 +139,6 @@ CREATE TABLE "Order" (
     PaymentMethod VARCHAR(50),
     PaymentProof TEXT, -- URL or text for payment proof
     Status VARCHAR(20) DEFAULT 'pending' CHECK (Status IN ('pending', 'verified', 'rejected')),
-    AdminNotes TEXT,
     VerifiedAt TIMESTAMP,
     VerifiedBy INTEGER REFERENCES "User"(UserID),
     CreatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,

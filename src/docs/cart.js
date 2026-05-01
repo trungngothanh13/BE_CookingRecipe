@@ -4,8 +4,8 @@
  *   post:
  *     tags:
  *       - Cart
- *     summary: Add a recipe to cart
- *     description: Add a recipe to the user's shopping cart. Prevents adding recipes already owned or already in cart.
+ *     summary: Add a course to cart
+ *     description: Add a course to the authenticated user's cart.
  *     security:
  *       - bearerAuth: []
  *     requestBody:
@@ -14,168 +14,61 @@
  *         application/json:
  *           schema:
  *             type: object
- *             required:
- *               - recipeId
  *             properties:
- *               recipeId:
+ *               courseId:
  *                 type: integer
- *                 description: Recipe ID to add to cart
- *                 example: 1
- *           example:
- *             recipeId: 1
+ *                 example: 3
+ *             required:
+ *               - courseId
  *     responses:
  *       201:
- *         description: Recipe added to cart successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                   example: true
- *                 message:
- *                   type: string
- *                   example: "Recipe added to cart successfully"
- *                 data:
- *                   type: object
- *                   properties:
- *                     id:
- *                       type: integer
- *                       example: 1
- *                     userId:
- *                       type: integer
- *                       example: 2
- *                     recipeId:
- *                       type: integer
- *                       example: 1
- *                     recipeTitle:
- *                       type: string
- *                       example: "Spaghetti Carbonara"
- *                     price:
- *                       type: number
- *                       format: float
- *                       example: 9.99
- *                     addedAt:
- *                       type: string
- *                       format: date-time
+ *         description: Course added to cart successfully
  *       400:
- *         description: Recipe not found, already in cart, or already owned
+ *         description: Invalid payload or add-to-cart rejected
  *       401:
  *         description: Authentication required
+ *       409:
+ *         description: Course already purchased
  *       500:
  *         description: Server error
  *
  *   get:
  *     tags:
  *       - Cart
- *     summary: Get user's cart
- *     description: Retrieve the user's shopping cart with all items and total amount
+ *     summary: Get authenticated user's cart
+ *     description: Returns cart items, total price, and item count.
  *     security:
  *       - bearerAuth: []
  *     responses:
  *       200:
  *         description: Cart retrieved successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                   example: true
- *                 data:
- *                   type: object
- *                   properties:
- *                     items:
- *                       type: array
- *                       items:
- *                         type: object
- *                         properties:
- *                           id:
- *                             type: integer
- *                             example: 1
- *                           recipeId:
- *                             type: integer
- *                             example: 1
- *                           title:
- *                             type: string
- *                             example: "Spaghetti Carbonara"
- *                           videoThumbnail:
- *                             type: string
- *                             nullable: true
- *                           price:
- *                             type: number
- *                             format: float
- *                             example: 9.99
- *                           difficulty:
- *                             type: string
- *                             enum: [easy, medium, hard]
- *                           cookingTime:
- *                             type: integer
- *                             example: 20
- *                           category:
- *                             type: string
- *                             example: "Italian"
- *                           addedAt:
- *                             type: string
- *                             format: date-time
- *                     total:
- *                       type: number
- *                       format: float
- *                       example: 19.98
- *                     itemCount:
- *                       type: integer
- *                       example: 2
  *       401:
  *         description: Authentication required
  *       500:
  *         description: Server error
  *
- * /api/cart/{recipeId}:
+ * /api/cart/{courseId}:
  *   delete:
  *     tags:
  *       - Cart
- *     summary: Remove a recipe from cart
- *     description: Remove a specific recipe from the user's shopping cart
+ *     summary: Remove a course from cart
+ *     description: Remove one course item from the authenticated user's cart.
  *     security:
  *       - bearerAuth: []
  *     parameters:
  *       - in: path
- *         name: recipeId
+ *         name: courseId
  *         required: true
  *         schema:
  *           type: integer
- *         description: Recipe ID to remove from cart
- *         example: 1
+ *         description: Course ID to remove
  *     responses:
  *       200:
- *         description: Recipe removed from cart successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                   example: true
- *                 message:
- *                   type: string
- *                   example: "Recipe removed from cart successfully"
- *                 data:
- *                   type: object
- *                   properties:
- *                     cartId:
- *                       type: integer
- *                       example: 1
- *                     recipeId:
- *                       type: integer
- *                       example: 1
+ *         description: Course removed from cart successfully
  *       400:
- *         description: Item not found in cart
+ *         description: Invalid course id or removal failure
  *       401:
  *         description: Authentication required
  *       500:
  *         description: Server error
  */
-
