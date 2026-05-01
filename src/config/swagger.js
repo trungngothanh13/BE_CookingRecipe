@@ -34,24 +34,8 @@ const swaggerOptions = {
         description: 'User authentication and profile management'
       },
       {
-        name: 'Recipes',
-        description: 'Recipe management (admin only for create/update/delete)'
-      },
-      {
-        name: 'Images',
-        description: 'Image uploads (profile pictures and recipe thumbnails)'
-      },
-      {
-        name: 'Ratings',
-        description: 'Recipe ratings and reviews (purchasers only)'
-      },
-      {
-        name: 'Cart',
-        description: 'Shopping cart management'
-      },
-      {
-        name: 'Transactions',
-        description: 'Transaction and payment management'
+        name: 'Courses',
+        description: 'Public course catalog'
       }
     ],
     components: {
@@ -64,7 +48,13 @@ const swaggerOptions = {
       },
     },
   },
-  apis: ['./src/docs/*.js', './src/routes/*.js'],
+  apis: [
+    './src/docs/auth.js',
+    './src/docs/courses.js',
+    './src/docs/schemas.js',
+    './src/routes/auth.js',
+    './src/routes/courses.js'
+  ],
 };
 
 const swaggerSpec = swaggerJsdoc(swaggerOptions);

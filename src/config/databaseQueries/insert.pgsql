@@ -14,7 +14,7 @@ DROP TABLE IF EXISTS "User" CASCADE;
 CREATE TABLE "User" (
     UserID SERIAL PRIMARY KEY,
     Username VARCHAR(50) UNIQUE NOT NULL,
-    Email VARCHAR(100) UNIQUE NOT NULL,
+    Email VARCHAR(100) UNIQUE,
     Password VARCHAR(100) NOT NULL,
     ProfilePicture TEXT,
     Role VARCHAR(20) DEFAULT 'user' CHECK (Role IN ('user', 'admin')),
@@ -29,9 +29,9 @@ CREATE TABLE Course (
     Description TEXT,
     ThumbNail TEXT,
     Price DECIMAL(10, 2) DEFAULT 0.00,
-    Difficulty VARCHAR(20) CHECK (Difficulty IN ('beginner', 'intermediate', 'advanced')),
+    Difficulty VARCHAR(20) CHECK (LOWER(Difficulty) IN ('beginner', 'intermediate', 'advanced')),
     Duration INTEGER, -- in minutes (total for all lessons)
-    LessonCount INTEGER DEFAULT 0,
+    ModuleCount INTEGER DEFAULT 0,
     Category VARCHAR(50),
     ViewCount INTEGER DEFAULT 0,
     PurchaseCount INTEGER DEFAULT 0,
@@ -58,7 +58,7 @@ CREATE TABLE Lesson (
     LessonTitle VARCHAR(255) NOT NULL,
     Description TEXT,
     LessonOrder INTEGER NOT NULL, -- Position in module
-    ContentType VARCHAR(20) CHECK (ContentType IN ('article', 'video', 'assignment')),
+    ContentType VARCHAR(20) CHECK (LOWER(ContentType) IN ('article', 'video', 'assignment')),
     DurationMinutes INTEGER, -- For videos
     CreatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     UpdatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -68,7 +68,7 @@ CREATE TABLE Lesson (
 CREATE TABLE LessonContent (
     ContentID SERIAL PRIMARY KEY,
     LessonID INTEGER REFERENCES Lesson(LessonID) ON DELETE CASCADE,
-    ContentType VARCHAR(20) CHECK (ContentType IN ('article', 'video', 'assignment')),
+    ContentType VARCHAR(20) CHECK (LOWER(ContentType) IN ('article', 'video', 'assignment')),
     
     -- Article fields
     ArticleText TEXT,
@@ -142,14 +142,3 @@ CREATE TABLE Transaction (
     CreatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     UpdatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
-
--- Create indexes for better query performance
-CREATE INDEX idx_module_course ON Module(CourseID);
-CREATE INDEX idx_lesson_module ON Lesson(ModuleID);
-CREATE INDEX idx_progress_user_lesson ON StudentProgress(UserID, LessonID);
-CREATE INDEX idx_progress_completed ON StudentProgress(IsCompleted);
-CREATE INDEX idx_purchase_user ON Purchase(UserID);
-CREATE INDEX idx_purchase_course ON Purchase(CourseID);
-CREATE INDEX idx_cart_user ON Cart(UserID);
-CREATE INDEX idx_review_course ON CourseReview(CourseID);
-CREATE INDEX idx_review_user ON CourseReview(UserID);
